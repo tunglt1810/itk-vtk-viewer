@@ -16,6 +16,7 @@ before_install:
   - sudo apt-get -qq update
   - sudo apt-get install -y libgif-dev
 install:
+  - npm i -g npm@6.11.3
   - npm ci
 
 notifications:
