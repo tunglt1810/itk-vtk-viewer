@@ -29,6 +29,7 @@ function typedArrayForBuffer(typedArrayType, buffer) {
 }
 
 const processFiles = (container, { files, use2D }) => {
+  console.log('start process file', files);
   UserInterface.emptyContainer(container);
   UserInterface.createLoadingProgress(container);
 
@@ -36,6 +37,7 @@ const processFiles = (container, { files, use2D }) => {
   return new Promise((resolve, reject) => {
     readImageDICOMFileSeries(null, files).then(({ image: itkImage, webWorker }) => {
       webWorker.terminate()
+      console.log('itk image', itkImage);
       const imageData = vtkITKHelper.convertItkToVtkImage(itkImage);
       const is3D = itkImage.imageType.dimension === 3 && !use2D;
 
@@ -46,6 +48,7 @@ const processFiles = (container, { files, use2D }) => {
         })
       );
     }).catch((error) => {
+      console.error(error);
       const readers = Array.from(files).map((file) => {
         const extension = getFileExtension(file.name)
         if(extension === 'vti') {
@@ -64,7 +67,8 @@ const processFiles = (container, { files, use2D }) => {
           }).catch((error) => {
             reject(error)
           })
-        } else if(extensionToMeshIO.has(extension)) {
+        }
+        if(extensionToMeshIO.has(extension)) {
           let is3D = true
           const read0 = performance.now()
           let convert0 = null

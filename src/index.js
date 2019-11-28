@@ -7,6 +7,7 @@ import processFiles from './processFiles';
 import UserInterface from './UserInterface';
 import createFileDragAndDrop from './UserInterface/createFileDragAndDrop';
 import style from './UserInterface/ItkVtkViewer.module.css';
+import processCornerstoneImages from './processCornerstoneImages';
 
 let doNotInitViewers = false;
 
@@ -24,6 +25,7 @@ export function createViewerFromUrl(el, url, use2D = false) {
       [new Blob([arrayBuffer])],
       url.split('/').slice(-1)[0]
     );
+    console.log(file);
     return processFiles(el, { files: [file], use2D });
   });
 }
@@ -94,5 +96,6 @@ export function processParameters(
   return null;
 }
 
+export { processFiles, processCornerstoneImages };
 // Ensure processing of embedded viewers
 setTimeout(initializeEmbeddedViewers, 100);

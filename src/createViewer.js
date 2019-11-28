@@ -22,6 +22,7 @@ const createViewer = (
   rootContainer,
   { image, geometries, pointSets, use2D = false, rotate = true, viewerStyle, viewerState }
 ) => {
+  console.log('alo alo tao viewport dkm');
   UserInterface.emptyContainer(rootContainer);
 
   const proxyManager = vtkProxyManager.newInstance({ proxyConfiguration });
@@ -62,7 +63,7 @@ const createViewer = (
     return null;
   }
 
-  UserInterface.addLogo(store.container);
+  // UserInterface.addLogo(store.container);
 
   UserInterface.createMainUI(
     rootContainer,
