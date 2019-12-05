@@ -1,11 +1,11 @@
-import { reaction } from 'mobx';
+import { reaction, action } from 'mobx';
 
 import vtkLookupTableProxy from 'vtk.js/Sources/Proxy/Core/LookupTableProxy';
 
 import style from '../ItkVtkViewer.module.css';
 
-import { IconSelect } from '@thewtex/iconselect.js/lib/control/iconselect';
-import ColorPresetIcons from '../ColorPresetIcons';
+import createColorMapIconSelector from '../createColorMapIconSelector';
+import customColorMapIcon from '../customColorMapIcon';
 
 function createColorRangeInput(
   store,
@@ -41,154 +41,122 @@ function createColorRangeInput(
   reaction(() => { return store.imageUI.image; },
     (image) => { updateColorRangeInput(); }
   )
+
+  function updateDisplayedRange() {
+    const colorRange = store.imageUI.colorRanges[store.imageUI.selectedComponentIndex];
+    minimumInput.value = colorRange[0];
+    maximumInput.value = colorRange[1];
+  }
   reaction(() => { return store.imageUI.colorRanges.slice(); },
     (colorRanges) => {
-      const colorRange = colorRanges[store.imageUI.selectedComponentIndex];
-      minimumInput.value = colorRange[0];
-      maximumInput.value = colorRange[1];
+      updateDisplayedRange();
     }
   )
+  reaction(() => { return store.imageUI.selectedComponentIndex; },
+    (index) => {
+      updateDisplayedRange();
+    }
+  )
+
   minimumInput.addEventListener('change',
-    (event) => {
+    action((event) => {
       event.preventDefault();
       event.stopPropagation();
       const component = store.imageUI.selectedComponentIndex;
       store.imageUI.colorRanges[component] = [Number(event.target.value), store.imageUI.colorRanges[component][1]];
-    }
+    })
   );
   maximumInput.addEventListener('change',
-    (event) => {
+    action((event) => {
       event.preventDefault();
       event.stopPropagation();
       const component = store.imageUI.selectedComponentIndex;
       store.imageUI.colorRanges[component] = [store.imageUI.colorRanges[component][0], Number(event.target.value)];
-    }
+    })
   );
 
   updateColorRangeInput();
-
-  const canvas = document.createElement('canvas');
-  const width = 240;
-  const height = 20;
-  canvas.setAttribute('width', width);
-  canvas.setAttribute('height', height);
-
-  function customColorMapIcon(colorTransferFunction, range) {
-    const ctx = canvas.getContext('2d');
-
-    const rgba = colorTransferFunction.getUint8Table(
-      range[0],
-      range[1],
-      width,
-      4,
-    );
-    const pixelsArea = ctx.getImageData(0, 0, width, 256);
-    for (let lineIdx = 0; lineIdx < 256; lineIdx++) {
-      pixelsArea.data.set(rgba, lineIdx * 4 * width);
-    }
-
-    const nbValues = 256 * width * 4;
-    const lineSize = width * 4;
-    for (let i = 3; i < nbValues; i += 4) {
-      pixelsArea.data[i] = 255 - Math.floor(i / lineSize);
-    }
-
-    ctx.putImageData(pixelsArea, 0, 0);
-    return canvas.toDataURL('image/png')
-  }
+  updateDisplayedRange();
 
   const colorMapSelector = document.createElement('div');
   colorMapSelector.id = `${store.id}-imageColorMapSelector`;
 
   uiContainer.appendChild(minimumInput);
-  //uiContainer.appendChild(canvas);
   uiContainer.appendChild(colorMapSelector);
   uiContainer.appendChild(maximumInput);
 
-  const rows = 20;
-  const cols = 3;
-  const iconSelectParameters = {'selectedIconWidth': 230,
-      'selectedIconHeight': 22,
-      'selectedBoxPadding': 1,
-      'iconsWidth': 60,
-      'iconsHeight': 22,
-      'boxIconSpace': 1,
-      'vectoralIconNumber': cols,
-      'horizontalIconNumber': rows};
-  const iconSelect = new IconSelect(`${colorMapSelector.id}`,
-    colorMapSelector, iconSelectParameters);
-  colorMapSelector.style.width = '244px';
-  const icons = new Array(rows * cols);
-  let count = 0;
-  for (let [key, value] of ColorPresetIcons.entries()) {
-    const index = Math.floor(count % rows)*cols + Math.floor(count / rows);
-    icons[index] = {'iconFilePath': value, 'iconValue': key};
-    count++;
-  }
-  iconSelect.refresh(icons)
+  const iconSelector = createColorMapIconSelector(colorMapSelector);
 
   let customIcon = null;
+  function updateDisplayedColorMap() {
+    const component = store.imageUI.selectedComponentIndex;
+    const colorMap = store.imageUI.colorMaps[component];
+
+    const lookupTableProxy = store.imageUI.lookupTableProxies[component];
+    const colorTransferFunction = lookupTableProxy.getLookupTable();
+
+    const transferFunctionWidget = store.imageUI.transferFunctionWidget;
+    const piecewiseFunction = store.imageUI.piecewiseFunctionProxies[component].getPiecewiseFunction()
+    if (colorMap.startsWith('Custom')) {
+      lookupTableProxy.setMode(vtkLookupTableProxy.Mode.RGBPoints)
+      transferFunctionWidget.applyOpacity(piecewiseFunction);
+      const colorDataRange = transferFunctionWidget.getOpacityRange();
+      if (!!colorDataRange) {
+        colorTransferFunction.setMappingRange(...colorDataRange);
+      }
+      colorTransferFunction.updateRange();
+
+      const isIcons = iconSelector.getIcons();
+      if (!!!customIcon) {
+        const colorMapIcon = customColorMapIcon(colorTransferFunction, colorDataRange);
+        customIcon = { 'iconFilePath': colorMapIcon, 'iconValue': colorMap };
+        icons.push(customIcon);
+        iconSelector.refresh(icons);
+      } else if(isIcons[isIcons.length-1].iconValue !== colorMap) {
+        const colorMapIcon = customColorMapIcon(colorTransferFunction, colorDataRange);
+        isIcons[isIcons.length-1].element.src = colorMapIcon;
+        isIcons[isIcons.length-1].iconFilePath = colorMapIcon;
+        isIcons[isIcons.length-1].iconValue = colorMap;
+        isIcons[isIcons.length-1].element.setAttribute('icon-value', colorMap);
+        isIcons[isIcons.length-1].element.setAttribute('alt', colorMap);
+        isIcons[isIcons.length-1].element.setAttribute('title', colorMap);
+      }
+    } else {
+      lookupTableProxy.setPresetName(colorMap);
+      lookupTableProxy.setMode(vtkLookupTableProxy.Mode.Preset)
+      transferFunctionWidget.applyOpacity(piecewiseFunction);
+      const colorDataRange = transferFunctionWidget.getOpacityRange();
+      if (!!colorDataRange) {
+        colorTransferFunction.setMappingRange(...colorDataRange);
+      }
+      colorTransferFunction.updateRange();
+    }
+    iconSelector.setSelectedValue(colorMap);
+    transferFunctionWidget.render();
+    if (!store.renderWindow.getInteractor().isAnimating()) {
+      store.renderWindow.render();
+    }
+  }
   reaction(() => { return store.imageUI.colorMaps.slice() },
     (colorMaps) => {
-      const component = store.imageUI.selectedComponentIndex;
-      const colorMap = colorMaps[component];
-
-      const lookupTableProxy = store.imageUI.lookupTableProxies[component];
-      const colorTransferFunction = lookupTableProxy.getLookupTable();
-
-      const transferFunctionWidget = store.imageUI.transferFunctionWidget;
-      const piecewiseFunction = store.imageUI.piecewiseFunctionProxies[component].getPiecewiseFunction()
-      if (colorMap.startsWith('Custom')) {
-        lookupTableProxy.setMode(vtkLookupTableProxy.Mode.RGBPoints)
-        transferFunctionWidget.applyOpacity(piecewiseFunction);
-        const colorDataRange = transferFunctionWidget.getOpacityRange();
-        if (!!colorDataRange) {
-          colorTransferFunction.setMappingRange(...colorDataRange);
-        }
-        colorTransferFunction.updateRange();
-
-        const isIcons = iconSelect.getIcons();
-        if (!!!customIcon) {
-          const colorMapIcon = customColorMapIcon(colorTransferFunction, colorDataRange);
-          customIcon = { 'iconFilePath': colorMapIcon, 'iconValue': colorMap };
-          icons.push(customIcon);
-          iconSelect.refresh(icons);
-        } else if(isIcons[isIcons.length-1].iconValue !== colorMap) {
-          const colorMapIcon = customColorMapIcon(colorTransferFunction, colorDataRange);
-          isIcons[isIcons.length-1].element.src = colorMapIcon;
-          isIcons[isIcons.length-1].iconFilePath = colorMapIcon;
-          isIcons[isIcons.length-1].iconValue = colorMap;
-          isIcons[isIcons.length-1].element.setAttribute('icon-value', colorMap);
-          isIcons[isIcons.length-1].element.setAttribute('alt', colorMap);
-          isIcons[isIcons.length-1].element.setAttribute('title', colorMap);
-        }
-      } else {
-        lookupTableProxy.setPresetName(colorMap);
-        lookupTableProxy.setMode(vtkLookupTableProxy.Mode.Preset)
-        transferFunctionWidget.applyOpacity(piecewiseFunction);
-        const colorDataRange = transferFunctionWidget.getOpacityRange();
-        if (!!colorDataRange) {
-          colorTransferFunction.setMappingRange(...colorDataRange);
-        }
-        colorTransferFunction.updateRange();
-      }
-      iconSelect.setSelectedValue(colorMap);
-      transferFunctionWidget.render();
-      if (!store.renderWindow.getInteractor().isAnimating()) {
-        store.renderWindow.render();
-      }
+      updateDisplayedColorMap();
+    }
+  )
+  reaction(() => { return store.imageUI.selectedComponentIndex },
+    (index) => {
+      updateDisplayedColorMap();
     }
   )
   colorMapSelector.addEventListener('changed',
-    (event) => {
+    action((event) => {
       event.preventDefault();
       event.stopPropagation();
       const componentIndex = store.imageUI.selectedComponentIndex;
-      store.imageUI.colorMaps[componentIndex] = iconSelect.getSelectedValue();
-    }
+      store.imageUI.colorMaps[componentIndex] = iconSelector.getSelectedValue();
+    })
   );
   const component = store.imageUI.selectedComponentIndex;
-  iconSelect.setSelectedValue(store.imageUI.colorMaps[component]);
+  iconSelector.setSelectedValue(store.imageUI.colorMaps[component]);
 }
 
 export default createColorRangeInput;
