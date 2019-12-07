@@ -1,10 +1,9 @@
-import { reaction, action } from 'mobx';
-
+import { action, reaction } from 'mobx';
 import vtkMouseRangeManipulator from 'vtk.js/Sources/Interaction/Manipulators/MouseRangeManipulator';
 import vtkPiecewiseGaussianWidget from 'vtk.js/Sources/Interaction/Widgets/PiecewiseGaussianWidget';
 import macro from 'vtk.js/Sources/macro';
-
 import style from '../ItkVtkViewer.module.css';
+
 
 function createTransferFunctionWidget(
   store,
@@ -47,8 +46,7 @@ function createTransferFunctionWidget(
     {
       numberOfComponents: store.imageUI.numberOfComponents,
       component: store.imageUI.selectedComponentIndex,
-    }
-  );
+    });
 
   const piecewiseWidgetContainer = document.createElement('div');
   piecewiseWidgetContainer.setAttribute('class', style.piecewiseWidget);
@@ -69,7 +67,7 @@ function createTransferFunctionWidget(
     const component = store.imageUI.selectedComponentIndex;
     const lookupTableProxy = store.imageUI.lookupTableProxies[component];
     const lookupTable = lookupTableProxy.getLookupTable();
-    const piecewiseFunction = store.imageUI.piecewiseFunctionProxies[component].getPiecewiseFunction()
+    const piecewiseFunction = store.imageUI.piecewiseFunctionProxies[component].getPiecewiseFunction();
     if (!use2D) {
       transferFunctionWidget.applyOpacity(piecewiseFunction);
     }
@@ -81,7 +79,7 @@ function createTransferFunctionWidget(
       renderWindow.render();
     }
   });
-  reaction(() => { return store.imageUI.colorRanges.slice(); },
+  reaction(() => store.imageUI.colorRanges.slice(),
     (colorRanges) => {
       const component = store.imageUI.selectedComponentIndex;
       const colorRange = colorRanges[component];
@@ -100,7 +98,9 @@ function createTransferFunctionWidget(
 
       let count = gaussians.length;
       while (count--) {
-        let { position, width, xBias, yBias } = newGaussians[count];
+        let {
+          position, width, xBias, yBias
+        } = newGaussians[count];
         if (position - width < colorRangeNormalized[0]) {
           position = colorRangeNormalized[0] + width;
           newGaussians[count].position = position;
@@ -139,8 +139,7 @@ function createTransferFunctionWidget(
       transferFunctionWidget.setRangeZoom(colorRangeNormalized);
       store.imageUI.opacityGaussians[component] = newGaussians;
       transferFunctionWidget.setGaussians(newGaussians);
-    }
-  )
+    });
   const onZoomChange = action((zoom) => {
     const component = store.imageUI.selectedComponentIndex;
     const dataArray = store.imageUI.image.getPointData().getScalars();
@@ -160,17 +159,16 @@ function createTransferFunctionWidget(
     lookupTable.setMappingRange(...colorDataRange);
     lookupTable.updateRange();
   }
-  reaction(() => { return store.imageUI.selectedComponentIndex; },
+  reaction(() => store.imageUI.selectedComponentIndex,
     (index) => {
       const colorRange = store.imageUI.colorRanges[index];
       const numberOfComponents = store.imageUI.numberOfComponents;
       const dataArray = store.imageUI.image.getPointData().getScalars();
       transferFunctionWidget.setDataArray(dataArray.getData(),
         {
-          numberOfComponents: numberOfComponents,
+          numberOfComponents,
           component: index,
-        }
-      )
+        });
       transferFunctionWidget.setGaussians(store.imageUI.opacityGaussians[index]);
 
       const fullRange = dataArray.getRange(index);
@@ -185,8 +183,7 @@ function createTransferFunctionWidget(
       if (!renderWindow.getInteractor().isAnimating()) {
         renderWindow.render();
       }
-    }
-  )
+    });
   updateTransferFunctionLookupTable(store.imageUI.selectedComponentIndex);
 
   function setupOpacityGaussians() {
@@ -197,9 +194,13 @@ function createTransferFunctionWidget(
           // Necessary side effect: addGaussian calls invokeOpacityChange, which
           // calls onOpacityChange, which updates the lut (does not have a low
           // opacity in 2D)
-          store.imageUI.opacityGaussians.push([{ position: 0.5, height: 1.0, width: 0.5, xBias: 0.0, yBias: 3.0 }]);
+          store.imageUI.opacityGaussians.push([{
+            position: 0.5, height: 1.0, width: 0.5, xBias: 0.0, yBias: 3.0
+          }]);
         } else {
-          store.imageUI.opacityGaussians.push([{ position: 0.5, height: 1.0, width: 0.5, xBias: 0.5, yBias: 0.4 }]);
+          store.imageUI.opacityGaussians.push([{
+            position: 0.5, height: 1.0, width: 0.5, xBias: 0.5, yBias: 0.4
+          }]);
         }
       }
       if (!use2D) {
@@ -211,11 +212,10 @@ function createTransferFunctionWidget(
     const selectedComponent = store.imageUI.selectedComponentIndex;
     transferFunctionWidget.setGaussians(store.imageUI.opacityGaussians[selectedComponent]);
   }
-  reaction(() => { return store.imageUI.image; },
+  reaction(() => store.imageUI.image,
     (image) => {
       setupOpacityGaussians();
-    }
-  )
+    });
   setupOpacityGaussians();
 
   const transferFunctionWidgetRow = document.createElement('div');
@@ -273,8 +273,14 @@ function createTransferFunctionWidget(
   );
 
   // Add range manipulator
-  store.itkVtkView.getInteractorStyle2D().addMouseManipulator(rangeManipulator);
-  store.itkVtkView.getInteractorStyle3D().addMouseManipulator(rangeManipulator);
+  // store.itkVtkView.getInteractorStyle2D().addMouseManipulator(rangeManipulator);
+  // store.itkVtkView.getInteractorStyle3D().addMouseManipulator(rangeManipulator);
+  // setTimeout(() => {
+  //   console.error('set aaaaaaaaaaaaaaaaaaaaa');
+
+  //   store.itkVtkView.getInteractorStyle2D().addMouseManipulator(rangeManipulator);
+  //   store.itkVtkView.getInteractorStyle3D().addMouseManipulator(rangeManipulator);
+  // }, 20000);
 
   const opacityRangeManipulator = vtkMouseRangeManipulator.newInstance({
     button: 3, // Right mouse

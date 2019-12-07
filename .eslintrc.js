@@ -35,7 +35,10 @@ module.exports = {
     "no-unsafe-negation": 0,
 
     //tunglt
-    "comma-dangle": 0
+    "comma-dangle": 0,
+    "prefer-destructuring": 0,
+    "no-mixed-operators": 0,
+    "default-case": 0
   },
   globals: {
     __BASE_PATH__: false,

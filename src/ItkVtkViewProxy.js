@@ -1,10 +1,10 @@
-import macro from 'vtk.js/Sources/macro';
-
-import vtkViewProxy from 'vtk.js/Sources/Proxy/Core/ViewProxy';
-import vtkPointPicker from 'vtk.js/Sources/Rendering/Core/PointPicker';
-import vtkActor from 'vtk.js/Sources/Rendering/Core/Actor';
 import vtkCubeSource from 'vtk.js/Sources/Filters/Sources/CubeSource';
+import macro from 'vtk.js/Sources/macro';
+import vtkViewProxy from 'vtk.js/Sources/Proxy/Core/ViewProxy';
+import vtkActor from 'vtk.js/Sources/Rendering/Core/Actor';
 import vtkMapper from 'vtk.js/Sources/Rendering/Core/Mapper';
+import vtkPointPicker from 'vtk.js/Sources/Rendering/Core/PointPicker';
+
 
 const { vtkErrorMacro } = macro;
 
@@ -22,7 +22,7 @@ function ItkVtkViewProxy(publicAPI, model) {
     // volume rendering
     if (axisIndex === -1) {
       model.interactor.setInteractorStyle(model.interactorStyle3D);
-      if (model.rotate && !!!model.rotateAnimationCallback) {
+      if (model.rotate && !model.rotateAnimationCallback) {
         model.rotateAnimationCallback = model.interactor.onAnimation(rotateAzimuth);
         model.interactor.requestAnimation('itk-vtk-view-rotate');
       }
@@ -106,7 +106,7 @@ function ItkVtkViewProxy(publicAPI, model) {
           xPosition: String(worldPosition[0]).substring(0, 4),
           yPosition: String(worldPosition[1]).substring(0, 4),
           zPosition: String(worldPosition[2]).substring(0, 4),
-          value: value,
+          value,
         });
       } else {
         model.dataProbeActor.setVisibility(false);
@@ -140,9 +140,12 @@ function ItkVtkViewProxy(publicAPI, model) {
   });
   model.interactor.onStartMouseMove((event) => {
     publicAPI.getInteractor().requestAnimation('annotationMouseMove');
+    // publicAPI.getInteractorStyle3D().startWindowLevel();
   });
   model.interactor.onEndMouseMove((event) => {
     publicAPI.getInteractor().cancelAnimation('annotationMouseMove');
+    // console.log(event);
+    // publicAPI.getInteractorStyle3D().endWindowLevel();
   });
   model.interactor.onEndMouseWheel((event) => {
     updateDataProbeSize();
@@ -176,11 +179,11 @@ function ItkVtkViewProxy(publicAPI, model) {
       const spacing = image.getSpacing();
       let viewableScale = null;
       if (model.camera.getParallelProjection()) {
-        viewableScale = model.camera.getParallelScale() / 40.;
+        viewableScale = model.camera.getParallelScale() / 40.0;
       } else {
         const distance = model.camera.getDistance();
         // Heuristic assuming a constant view angle
-        viewableScale = distance / 150.;
+        viewableScale = distance / 150.0;
       }
       model.dataProbeCubeSource.setXLength(Math.max(spacing[0], viewableScale));
       model.dataProbeCubeSource.setYLength(Math.max(spacing[1], viewableScale));
@@ -313,10 +316,10 @@ function ItkVtkViewProxy(publicAPI, model) {
 
   // Continuously rotate in 3D
   function rotateAzimuth() {
-    model.renderer.getActiveCamera().azimuth(0.25)
+    model.renderer.getActiveCamera().azimuth(0.25);
     model.renderer.resetCameraClippingRange();
   }
-  model.rotateAnimationCallback = null
+  model.rotateAnimationCallback = null;
   publicAPI.setRotate = (rotate) => {
     if (model.rotate === rotate) {
       return;
@@ -328,12 +331,12 @@ function ItkVtkViewProxy(publicAPI, model) {
       model.interactor.requestAnimation('itk-vtk-view-rotate');
     } else {
       model.interactor.cancelAnimation('itk-vtk-view-rotate');
-      if (!!model.rotateAnimationCallback) {
+      if (model.rotateAnimationCallback) {
         model.rotateAnimationCallback.unsubscribe();
         model.rotateAnimationCallback = null;
       }
     }
-  }
+  };
 }
 
 // ----------------------------------------------------------------------------
