@@ -843,6 +843,7 @@ const createViewer = (
   const defaultPresets = [
     { type: 'pan', options: { button: 3 } }, // Pan on Right button drag
     { type: 'zoom', options: { dragEnabled: false, scrollEnabled: true } }, // Zoom on scroll
+    { type: 'rotate', options: { button: 1, control: true } }, // Zoom on Ctrl + Left button drag
   ];
 
   const inractorPresets = {
@@ -876,7 +877,6 @@ const createViewer = (
   publicAPI.togglePassiveTool = (passiveTool) => {
     switch (passiveTool) {
       case 'Crop':
-        console.log(store.mainUI.croppingPlanesEnabled);
         publicAPI.setCroppingPlanesEnabled(!store.mainUI.croppingPlanesEnabled);
         break;
       default: break;
