@@ -23,7 +23,7 @@ const createViewer = (
     image, geometries, pointSets, use2D = false, rotate = true, viewerStyle, viewerState
   }
 ) => {
-  console.log('alo alo tao viewport dkm');
+  console.log('Init 3D Viewport');
   UserInterface.emptyContainer(rootContainer);
 
   const proxyManager = vtkProxyManager.newInstance({ proxyConfiguration });
@@ -465,10 +465,11 @@ const createViewer = (
   };
 
   publicAPI.setCroppingPlanesEnabled = (enabled) => {
-    const cropping = store.mainUI.croppingPlanesEnabled;
-    if (enabled && !cropping || !enabled && cropping) {
-      store.mainUI.croppingPlanesEnabled = cropping;
-    }
+    store.mainUI.croppingPlanesEnabled = !!enabled;
+    // const cropping = store.mainUI.croppingPlanesEnabled;
+    // if (enabled && !cropping || !enabled && cropping) {
+    //   store.mainUI.croppingPlanesEnabled = cropping;
+    // }
   };
 
   publicAPI.subscribeCroppingPlanesChanged = handler => store.imageUI.addCroppingPlanesChangedHandler(handler);
@@ -811,41 +812,55 @@ const createViewer = (
     publicAPI.setRotateEnabled(rotate);
   }
 
-  // const div = document.createElement('div');
-  // const btnRotate = document.createElement('button');
-  // btnRotate.innerHTML = 'Rotate';
-  // div.appendChild(btnRotate);
-  // const btnWindow = document.createElement('button');
-  // btnWindow.innerHTML = 'Window';
-  // div.appendChild(btnWindow);
-  // const btnZoom = document.createElement('button');
-  // btnZoom.innerHTML = 'Zoom';
-  // div.appendChild(btnZoom);
-  // const btnPan = document.createElement('button');
-  // btnPan.innerHTML = 'Pan';
-  // div.appendChild(btnPan);
-  // store.mainUI.uiContainer.appendChild(div);
+  const div = document.createElement('div');
+  const btnRotate = document.createElement('button');
+  btnRotate.innerHTML = 'Rotate';
+  div.appendChild(btnRotate);
+  const btnWindow = document.createElement('button');
+  btnWindow.innerHTML = 'Window';
+  div.appendChild(btnWindow);
+  const btnZoom = document.createElement('button');
+  btnZoom.innerHTML = 'Zoom';
+  div.appendChild(btnZoom);
+  const btnPan = document.createElement('button');
+  btnPan.innerHTML = 'Pan';
+  div.appendChild(btnPan);
+  const btnCrop = document.createElement('button');
+  btnCrop.innerHTML = 'Crop';
+  div.appendChild(btnCrop);
+  const btnReset = document.createElement('button');
+  btnReset.innerHTML = 'Reset';
+  div.appendChild(btnReset);
+  store.mainUI.uiContainer.appendChild(div);
 
-  // btnRotate.addEventListener('click', () => { publicAPI.setActiveTool('Rotate'); });
-  // btnWindow.addEventListener('click', () => { publicAPI.setActiveTool('Wwwc'); });
-  // btnZoom.addEventListener('click', () => { publicAPI.setActiveTool('Zoom'); });
-  // btnPan.addEventListener('click', () => { publicAPI.setActiveTool('Pan'); });
+  btnRotate.addEventListener('click', () => { publicAPI.setActiveTool('Rotate'); });
+  btnWindow.addEventListener('click', () => { publicAPI.setActiveTool('Wwwc'); });
+  btnZoom.addEventListener('click', () => { publicAPI.setActiveTool('Zoom'); });
+  btnPan.addEventListener('click', () => { publicAPI.setActiveTool('Pan'); });
+  btnCrop.addEventListener('click', () => { publicAPI.togglePassiveTool('Crop'); });
+  btnReset.addEventListener('click', () => { publicAPI.resetViewport(); });
+
+  const defaultPresets = [
+    { type: 'pan', options: { button: 3 } }, // Pan on Right button drag
+    { type: 'zoom', options: { dragEnabled: false, scrollEnabled: true } }, // Zoom on scroll
+  ];
 
   const inractorPresets = {
-    Rotate: [{ type: 'rotate', options: { button: 1 } }],
-    Zoom: [{ type: 'zoom', options: { button: 1 } }],
-    Pan: [{ type: 'pan', options: { button: 1 } }],
+    Rotate: [{ type: 'rotate', options: { button: 1 } }, ...defaultPresets],
+    Zoom: [{ type: 'zoom', options: { button: 1 } }, ...defaultPresets],
+    Pan: [{ type: 'pan', options: { button: 1 } }, ...defaultPresets],
   };
 
   publicAPI.setActiveTool = (activeTool) => {
     store.activeTool = activeTool;
-    console.log('set active tool', activeTool);
+    // console.log('set active tool', activeTool);
     store.itkVtkView.getInteractorStyle3D().removeAllMouseManipulators();
     switch (activeTool) {
       case 'Rotate':
         store.itkVtkView.setPresetToInteractor3D(inractorPresets.Rotate);
         break;
       case 'Wwwc':
+        store.itkVtkView.setPresetToInteractor3D(defaultPresets);
         addTransferFunctionMouseManipulator(store);
         break;
       case 'Zoom':
@@ -856,6 +871,22 @@ const createViewer = (
         break;
       default: break;
     }
+  };
+
+  publicAPI.togglePassiveTool = (passiveTool) => {
+    switch (passiveTool) {
+      case 'Crop':
+        console.log(store.mainUI.croppingPlanesEnabled);
+        publicAPI.setCroppingPlanesEnabled(!store.mainUI.croppingPlanesEnabled);
+        break;
+      default: break;
+    }
+  };
+
+  publicAPI.resetViewport = () => {
+    store.imageUI.representationProxy.getCropFilter().reset();
+    store.imageUI.croppingWidget.resetWidgetState();
+    store.itkVtkView.resetCamera();
   };
 
   window.viewer3DStore = store;

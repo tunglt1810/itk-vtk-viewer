@@ -48,7 +48,6 @@ const addTransferFunctionMouseManipulator = (store) => {
     levelSet
   );
 
-  console.log('add mouse manipulator', rangeManipulator);
   store.itkVtkView.getInteractorStyle2D().addMouseManipulator(rangeManipulator);
   store.itkVtkView.getInteractorStyle3D().addMouseManipulator(rangeManipulator);
 };
