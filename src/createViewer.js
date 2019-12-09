@@ -23,7 +23,7 @@ const createViewer = (
     image, geometries, pointSets, use2D = false, rotate = true, viewerStyle, viewerState
   }
 ) => {
-  console.log('Init 3D Viewport');
+  console.log('Init 3D Viewport with image data', image);
   UserInterface.emptyContainer(rootContainer);
 
   const proxyManager = vtkProxyManager.newInstance({ proxyConfiguration });

@@ -1,13 +1,13 @@
 import '@babel/polyfill';
-
 import vtkURLExtract from 'vtk.js/Sources/Common/Core/URLExtract';
-
+import createViewer from './createViewer';
 import fetchBinaryContent from './fetchBinaryContent';
+import processCornerstoneImages from './processCornerstoneImages';
 import processFiles from './processFiles';
 import UserInterface from './UserInterface';
 import createFileDragAndDrop from './UserInterface/createFileDragAndDrop';
 import style from './UserInterface/ItkVtkViewer.module.css';
-import processCornerstoneImages from './processCornerstoneImages';
+
 
 let doNotInitViewers = false;
 
@@ -56,7 +56,7 @@ export function initializeEmbeddedViewers() {
               color.slice(0, 2),
               color.slice(2, 4),
               color.slice(4, 6),
-            ].map((v) => parseInt(v, 16) / 255);
+            ].map(v => parseInt(v, 16) / 255);
             viewer.renderer.setBackground(bgColor);
           }
 
@@ -96,6 +96,6 @@ export function processParameters(
   return null;
 }
 
-export { processFiles, processCornerstoneImages };
+export { processFiles, processCornerstoneImages, createViewer };
 // Ensure processing of embedded viewers
 setTimeout(initializeEmbeddedViewers, 100);
