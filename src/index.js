@@ -1,6 +1,5 @@
 import '@babel/polyfill';
 import vtkURLExtract from 'vtk.js/Sources/Common/Core/URLExtract';
-import createViewer from './createViewer';
 import fetchBinaryContent from './fetchBinaryContent';
 import processCornerstoneImages from './processCornerstoneImages';
 import processFiles from './processFiles';
@@ -10,6 +9,8 @@ import style from './UserInterface/ItkVtkViewer.module.css';
 
 
 let doNotInitViewers = false;
+
+export {default as createViewer} from './createViewer';
 
 export function createViewerFromLocalFiles(container) {
   doNotInitViewers = true;
@@ -96,6 +97,6 @@ export function processParameters(
   return null;
 }
 
-export { processFiles, processCornerstoneImages, createViewer };
+export { processFiles, processCornerstoneImages };
 // Ensure processing of embedded viewers
 setTimeout(initializeEmbeddedViewers, 100);

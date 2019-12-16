@@ -33,9 +33,16 @@ const processFiles = (container, { files, use2D }) => {
   UserInterface.emptyContainer(container);
   UserInterface.createLoadingProgress(container);
 
+  let readDICOMSeries = readImageDICOMFileSeries;
+  if (files.length < 2) {
+    readDICOMSeries = function() {
+      return Promise.reject('Skip DICOM series read attempt');
+    }
+  }
+
   /* eslint-disable new-cap */
   return new Promise((resolve, reject) => {
-    readImageDICOMFileSeries(null, files).then(({ image: itkImage, webWorker }) => {
+    readDICOMSeries(null, files).then(({ image: itkImage, webWorker }) => {
       webWorker.terminate()
       console.log('itk image', itkImage);
       const imageData = vtkITKHelper.convertItkToVtkImage(itkImage);
@@ -116,7 +123,29 @@ const processFiles = (container, { files, use2D }) => {
       })
       Promise.all(readers).then((dataSets) => {
         const images = dataSets.filter(({ data }) => !!data && data.isA('vtkImageData')).map(({ data }) => data)
-        const image = images.length ? images[0] : null
+        let image = null;
+        let labelMap = null;
+        if (images.length > 0) {
+          for (let index = 0; index < images.length; index++) {
+            const dataArray = images[index].getPointData().getScalars();
+            const dataType = dataArray.getDataType();
+            // Only integer-based pixels considered for label maps
+            if (dataType === 'Float32Array' || dataType === 'Float64Array') {
+              image = images[index];
+              continue;
+            }
+            const data = dataArray.getData();
+            const uniqueLabels = new Set(data).size;
+            // If there are more values than this, it will not be considered a
+            // label map
+            const maxLabelsInLabelMap = 64;
+            if (uniqueLabels <= maxLabelsInLabelMap) {
+              labelMap = images[index];
+            } else {
+              image = images[index];
+            }
+          }
+        }
         const geometries = dataSets.filter(
           ({ data }) => {
             return !!data &&
@@ -136,6 +165,7 @@ const processFiles = (container, { files, use2D }) => {
         resolve(
           createViewer(container, {
             image,
+            labelMap,
             geometries,
             pointSets,
             use2D: !is3D,
