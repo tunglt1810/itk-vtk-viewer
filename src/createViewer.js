@@ -914,14 +914,23 @@ const createViewer = (
   const btnReset = document.createElement('button');
   btnReset.innerHTML = 'Reset';
   div.appendChild(btnReset);
+  const btnRandomColorMap = document.createElement('button');
+  btnRandomColorMap.innerHTML = 'Random colorMap';
+  div.appendChild(btnRandomColorMap);
   store.mainUI.uiContainer.appendChild(div);
 
+  const colorMaps = ["Viridis (matplotlib)","Plasma (matplotlib)","Inferno (matplotlib)","Magma (matplotlib)","Grayscale","X Ray","magenta","blue2cyan","gray_Matlab","bone_Matlab","pink_Matlab","2hot","gist_earth","Haze","Haze_green","Haze_lime","Haze_cyan","Black, Blue and White","Black, Orange and White","Black-Body Radiation","Cool to Warm","Warm to Cool","Cool to Warm (Extended)","Warm to Cool (Extended)","Blue to Red Rainbow","Red to Blue Rainbow","jet","rainbow","hsv","Rainbow Desaturated","Cold and Hot","Rainbow Blended Black","Rainbow Blended Grey","Rainbow Blended White","nic_CubicL","Spectral_lowBlue","Yellow 15","Asymmtrical Earth Tones (6_21b)","Green-Blue Asymmetric Divergent (62Blbc)","Muted Blue-Green","Reds","Greens","Blues","Purples","Oranges","PuBu",'BuPu','BuGn','GnBu',"PuRd","RdPu","RdOr","BuRd","GnRP","GYPi","GBBr","PRGn","PiYG","OrPu","BrBG"];
   btnRotate.addEventListener('click', () => { publicAPI.setActiveTool('Rotate'); });
   btnWindow.addEventListener('click', () => { publicAPI.setActiveTool('Wwwc'); });
   btnZoom.addEventListener('click', () => { publicAPI.setActiveTool('Zoom'); });
   btnPan.addEventListener('click', () => { publicAPI.setActiveTool('Pan'); });
   btnCrop.addEventListener('click', () => { publicAPI.togglePassiveTool('Crop'); });
   btnReset.addEventListener('click', () => { publicAPI.resetViewport(); });
+  btnRandomColorMap.addEventListener('click', () => {
+    const colorMapIndex = Math.floor(Math.random() * (colorMaps.length - 1));
+    console.log('random color map', colorMaps[colorMapIndex]);
+    publicAPI.setColorMap(colorMaps[colorMapIndex]);
+  });
 
   const defaultPresets = [
     { type: 'pan', options: { button: 3 } }, // Pan on Right button drag
@@ -970,6 +979,11 @@ const createViewer = (
     store.imageUI.representationProxy.getCropFilter().reset();
     store.imageUI.croppingWidget.resetWidgetState();
     store.itkVtkView.resetCamera();
+  };
+
+  publicAPI.setColorMap = (colorMap) => {
+    const componentIndex = store.imageUI.selectedComponentIndex;
+    store.imageUI.colorMaps[componentIndex] = colorMap;
   };
 
   return publicAPI;

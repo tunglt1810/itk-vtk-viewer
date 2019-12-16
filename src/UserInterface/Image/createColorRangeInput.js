@@ -91,7 +91,7 @@ function createColorRangeInput(
   function updateDisplayedColorMap() {
     const component = store.imageUI.selectedComponentIndex;
     const colorMap = store.imageUI.colorMaps[component];
-
+    console.log('select color map', colorMap);
     const lookupTableProxy = store.imageUI.lookupTableProxies[component];
     const colorTransferFunction = lookupTableProxy.getLookupTable();
 
@@ -147,12 +147,15 @@ function createColorRangeInput(
       updateDisplayedColorMap();
     }
   )
+
+  // handle select color map
   colorMapSelector.addEventListener('changed',
     action((event) => {
       event.preventDefault();
       event.stopPropagation();
       const componentIndex = store.imageUI.selectedComponentIndex;
       store.imageUI.colorMaps[componentIndex] = iconSelector.getSelectedValue();
+      console.log('select color map', event, iconSelector.getSelectedValue());
     })
   );
   const component = store.imageUI.selectedComponentIndex;
