@@ -144,13 +144,14 @@ function ItkVtkViewProxy(publicAPI, model) {
     updateAnnotations(event);
   });
   model.interactor.onStartMouseMove((event) => {
-    publicAPI.getInteractor().requestAnimation('annotationMouseMove');
-    // publicAPI.getInteractorStyle3D().startWindowLevel();
+    if (model.viewMode !== 'VolumeRendering' || model.viewPlanes) {
+      publicAPI.getInteractor().requestAnimation('annotationMouseMove');
+    }
   });
   model.interactor.onEndMouseMove((event) => {
-    publicAPI.getInteractor().cancelAnimation('annotationMouseMove');
-    // console.log(event);
-    // publicAPI.getInteractorStyle3D().endWindowLevel();
+    if (model.viewMode !== 'VolumeRendering' || model.viewPlanes) {
+      publicAPI.getInteractor().cancelAnimation('annotationMouseMove');
+    }
   });
   model.interactor.onEndMouseWheel((event) => {
     updateDataProbeSize();
