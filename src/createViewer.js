@@ -17,9 +17,9 @@ import { autorun, reaction } from 'mobx';
 import addTransferFunctionMouseManipulator from './addTransferFunctionMouseManipulator';
 
 import ColorMaps from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction/ColorMaps';
-import ColorMapsJson from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction/ColorMaps.json';
-
-ColorMapsJson.forEach((colorMap) => { ColorMaps.addPreset(colorMap); });
+// import ColorMapsJson from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction/ColorMaps.json';
+//
+// ColorMapsJson.forEach((colorMap) => { ColorMaps.addPreset(colorMap); });
 
 // ColorMaps.addPreset(ColorMapNo1);
 
@@ -1011,7 +1011,10 @@ const createViewer = (
     colorTransferFunction.updateRange();
     transferFunctionWidget.render();
     store.renderWindow.render();
+  };
 
+  publicAPI.addPresetColorMap = (preset) => {
+    ColorMaps.addPreset(preset);
   };
 
   return publicAPI;
