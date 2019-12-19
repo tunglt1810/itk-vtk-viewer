@@ -16,6 +16,13 @@ import applyCategoricalColorToLookupTableProxy from './UserInterface/applyCatego
 import { autorun, reaction } from 'mobx';
 import addTransferFunctionMouseManipulator from './addTransferFunctionMouseManipulator';
 
+import ColorMaps from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction/ColorMaps';
+import ColorMapsJson from 'vtk.js/Sources/Rendering/Core/ColorTransferFunction/ColorMaps.json';
+
+ColorMapsJson.forEach((colorMap) => { ColorMaps.addPreset(colorMap); });
+
+// ColorMaps.addPreset(ColorMapNo1);
+
 function applyStyle(el, style) {
   Object.keys(style).forEach((key) => {
     el.style[key] = style[key];
@@ -106,7 +113,8 @@ const createViewer = (
           for (let component = 0; component < numberOfComponents; component++) {
             store.imageUI.lookupTableProxies[component] = vtkLookupTableProxy.newInstance();
             store.imageUI.piecewiseFunctionProxies[component] = vtkPiecewiseFunctionProxy.newInstance();
-            let preset = 'Viridis (matplotlib)';
+            // let preset = 'Viridis (matplotlib)';
+            let preset = 'RdOrYl';
             // If a 2D RGB or RGBA
             if (use2D && dataArray.getDataType() === 'Uint8Array' && (numberOfComponents === 3 || numberOfComponents === 4)) {
               preset = 'Grayscale';
@@ -919,17 +927,23 @@ const createViewer = (
   div.appendChild(btnRandomColorMap);
   store.mainUI.uiContainer.appendChild(div);
 
-  const colorMaps = ["Viridis (matplotlib)","Plasma (matplotlib)","Inferno (matplotlib)","Magma (matplotlib)","Grayscale","X Ray","magenta","blue2cyan","gray_Matlab","bone_Matlab","pink_Matlab","2hot","gist_earth","Haze","Haze_green","Haze_lime","Haze_cyan","Black, Blue and White","Black, Orange and White","Black-Body Radiation","Cool to Warm","Warm to Cool","Cool to Warm (Extended)","Warm to Cool (Extended)","Blue to Red Rainbow","Red to Blue Rainbow","jet","rainbow","hsv","Rainbow Desaturated","Cold and Hot","Rainbow Blended Black","Rainbow Blended Grey","Rainbow Blended White","nic_CubicL","Spectral_lowBlue","Yellow 15","Asymmtrical Earth Tones (6_21b)","Green-Blue Asymmetric Divergent (62Blbc)","Muted Blue-Green","Reds","Greens","Blues","Purples","Oranges","PuBu",'BuPu','BuGn','GnBu',"PuRd","RdPu","RdOr","BuRd","GnRP","GYPi","GBBr","PRGn","PiYG","OrPu","BrBG"];
+  const colorMaps = ["KAAMS","Cool to Warm","Cool to Warm (Extended)","Warm to Cool","Warm to Cool (Extended)","Rainbow Desaturated","Cold and Hot","Black-Body Radiation","X Ray","Grayscale","BkRd","BkGn","BkBu","BkMa","BkCy","Black, Blue and White","Black, Orange and White","Linear YGB 1211g","Linear Green (Gr4L)","Linear Blue (8_31f)","Blue to Red Rainbow","Red to Blue Rainbow","Rainbow Blended White","Rainbow Blended Grey","Rainbow Blended Black","Blue to Yellow","blot","CIELab Blue to Red","jet","rainbow","erdc_rainbow_bright","erdc_rainbow_dark","nic_CubicL","nic_CubicYF","gist_earth","2hot","erdc_red2yellow_BW","erdc_marine2gold_BW","erdc_blue2gold_BW","erdc_sapphire2gold_BW","erdc_red2purple_BW","erdc_purple2pink_BW","erdc_pbj_lin","erdc_blue2green_muted","erdc_blue2green_BW","GREEN-WHITE_LINEAR","erdc_green2yellow_BW","blue2cyan","erdc_blue2cyan_BW","erdc_blue_BW","BLUE-WHITE","erdc_purple_BW","erdc_magenta_BW","magenta","RED-PURPLE","erdc_red_BW","RED_TEMPERATURE","erdc_orange_BW","heated_object","erdc_gold_BW","erdc_brown_BW","copper_Matlab","pink_Matlab","bone_Matlab","gray_Matlab","Purples","Blues","Greens","PuBu","BuPu","BuGn","GnBu","GnBuPu","BuGnYl","PuRd","RdPu","Oranges","Reds","RdOr","BrOrYl","RdOrYl","CIELab_blue2red","blue2yellow","erdc_blue2gold","erdc_blue2yellow","erdc_cyan2orange","erdc_purple2green","erdc_purple2green_dark","coolwarm","BuRd","Spectral_lowBlue","GnRP","GYPi","GnYlRd","GBBr","PuOr","PRGn","PiYG","OrPu","BrBG","GyRd","erdc_divHi_purpleGreen","erdc_divHi_purpleGreen_dim","erdc_divLow_icePeach","erdc_divLow_purpleGreen","Haze_green","Haze_lime","Haze","Haze_cyan","nic_Edge","erdc_iceFire_H","erdc_iceFire_L","hsv","hue_L60","Spectrum","Warm","Cool","Blues","Wild Flower","Citrus","Brewer Diverging Purple-Orange (11)","Brewer Diverging Purple-Orange (10)","Brewer Diverging Purple-Orange (9)","Brewer Diverging Purple-Orange (8)","Brewer Diverging Purple-Orange (7)","Brewer Diverging Purple-Orange (6)","Brewer Diverging Purple-Orange (5)","Brewer Diverging Purple-Orange (4)","Brewer Diverging Purple-Orange (3)","Brewer Diverging Spectral (11)","Brewer Diverging Spectral (10)","Brewer Diverging Spectral (9)","Brewer Diverging Spectral (8)","Brewer Diverging Spectral (7)","Brewer Diverging Spectral (6)","Brewer Diverging Spectral (5)","Brewer Diverging Spectral (4)","Brewer Diverging Spectral (3)","Brewer Diverging Brown-Blue-Green (11)","Brewer Diverging Brown-Blue-Green (10)","Brewer Diverging Brown-Blue-Green (9)","Brewer Diverging Brown-Blue-Green (8)","Brewer Diverging Brown-Blue-Green (7)","Brewer Diverging Brown-Blue-Green (6)","Brewer Diverging Brown-Blue-Green (5)","Brewer Diverging Brown-Blue-Green (4)","Brewer Diverging Brown-Blue-Green (3)","Brewer Sequential Blue-Green (9)","Brewer Sequential Blue-Green (8)","Brewer Sequential Blue-Green (7)","Brewer Sequential Blue-Green (6)","Brewer Sequential Blue-Green (5)","Brewer Sequential Blue-Green (4)","Brewer Sequential Blue-Green (3)","Brewer Sequential Yellow-Orange-Brown (9)","Brewer Sequential Yellow-Orange-Brown (8)","Brewer Sequential Yellow-Orange-Brown (7)","Brewer Sequential Yellow-Orange-Brown (6)","Brewer Sequential Yellow-Orange-Brown (5)","Brewer Sequential Yellow-Orange-Brown (4)","Brewer Sequential Yellow-Orange-Brown (3)","Brewer Sequential Blue-Purple (9)","Brewer Sequential Blue-Purple (8)","Brewer Sequential Blue-Purple (7)","Brewer Sequential Blue-Purple (6)","Brewer Sequential Blue-Purple (5)","Brewer Sequential Blue-Purple (4)","Brewer Sequential Blue-Purple (3)","Brewer Qualitative Accent","Brewer Qualitative Dark2","Brewer Qualitative Set2","Brewer Qualitative Pastel2","Brewer Qualitative Pastel1","Brewer Qualitative Set1","Brewer Qualitative Paired","Brewer Qualitative Set3","Traffic Lights","Traffic Lights For Deuteranopes","Traffic Lights For Deuteranopes 2","Muted Blue-Green","Green-Blue Asymmetric Divergent (62Blbc)","Asymmtrical Earth Tones (6_21b)","Yellow 15","Magma (matplotlib)","Inferno (matplotlib)","Plasma (matplotlib)","Viridis (matplotlib)","BlueObeliskElements"];
   btnRotate.addEventListener('click', () => { publicAPI.setActiveTool('Rotate'); });
   btnWindow.addEventListener('click', () => { publicAPI.setActiveTool('Wwwc'); });
   btnZoom.addEventListener('click', () => { publicAPI.setActiveTool('Zoom'); });
   btnPan.addEventListener('click', () => { publicAPI.setActiveTool('Pan'); });
   btnCrop.addEventListener('click', () => { publicAPI.togglePassiveTool('Crop'); });
   btnReset.addEventListener('click', () => { publicAPI.resetViewport(); });
+  let colorMapIndex = 0;
   btnRandomColorMap.addEventListener('click', () => {
-    const colorMapIndex = Math.floor(Math.random() * (colorMaps.length - 1));
-    console.log('random color map', colorMaps[colorMapIndex]);
+    console.log('select color map index', colorMapIndex, colorMaps[colorMapIndex]);
+    // publicAPI.setColorMap(colorMaps[colorMapIndex]);
+    // colorMapIndex = (colorMapIndex + 1) % colorMaps.length;
+    // console.log('set color map no 1');
+
     publicAPI.setColorMap(colorMaps[colorMapIndex]);
+
+    colorMapIndex = (colorMapIndex + 1) % colorMaps.length;
   });
 
   const defaultPresets = [
@@ -983,7 +997,21 @@ const createViewer = (
 
   publicAPI.setColorMap = (colorMap) => {
     const componentIndex = store.imageUI.selectedComponentIndex;
-    store.imageUI.colorMaps[componentIndex] = colorMap;
+    const lookupTableProxy = store.imageUI.lookupTableProxies[componentIndex];
+    const transferFunctionWidget = store.imageUI.transferFunctionWidget;
+    const piecewiseFunction = store.imageUI.piecewiseFunctionProxies[componentIndex].getPiecewiseFunction();
+    const colorTransferFunction = lookupTableProxy.getLookupTable();
+
+    lookupTableProxy.setPresetName(colorMap);
+    transferFunctionWidget.applyOpacity(piecewiseFunction);
+    const colorDataRange = transferFunctionWidget.getOpacityRange();
+    if (colorDataRange) {
+      colorTransferFunction.setMappingRange(...colorDataRange);
+    }
+    colorTransferFunction.updateRange();
+    transferFunctionWidget.render();
+    store.renderWindow.render();
+
   };
 
   return publicAPI;
