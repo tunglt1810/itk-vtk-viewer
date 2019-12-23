@@ -95,13 +95,13 @@ const createViewer = (
       if (!!!fusedImage) {
         return;
       }
+      const numberOfComponents = store.imageUI.numberOfComponents;
       if (!!!store.imageUI.representationProxy) {
         store.imageUI.source.setInputData(fusedImage);
 
         proxyManager.createRepresentationInAllViews(store.imageUI.source);
         store.imageUI.representationProxy = proxyManager.getRepresentation(store.imageUI.source, store.itkVtkView);
 
-        const numberOfComponents = store.imageUI.numberOfComponents;
         if (!!store.imageUI.image) {
           store.imageUI.lookupTableProxies = new Array(numberOfComponents);
           store.imageUI.piecewiseFunctionProxies = new Array(numberOfComponents);
@@ -224,7 +224,16 @@ const createViewer = (
           return;
         }
         updatingImage = true;
+
         store.imageUI.source.setInputData(fusedImage);
+
+        const volume = store.imageUI.representationProxy.getVolumes()[0]
+        const volumeProperty = volume.getProperty()
+        for (let component = 0; component < numberOfComponents; component++) {
+          const lut = store.imageUI.lookupTableProxies[component].getLookupTable();
+          volumeProperty.setRGBTransferFunction(component, lut);
+        }
+
         const transferFunctionWidget = store.imageUI.transferFunctionWidget;
         transferFunctionWidget.setDataArray(store.imageUI.image.getPointData().getScalars().getData());
         transferFunctionWidget.invokeOpacityChange(transferFunctionWidget);
@@ -1016,6 +1025,8 @@ const createViewer = (
   publicAPI.addPresetColorMap = (preset) => {
     ColorMaps.addPreset(preset);
   };
+
+  publicAPI.getTransferFunctionWidget = () => store.imageUI.transferFunctionWidget;
 
   return publicAPI;
 };
