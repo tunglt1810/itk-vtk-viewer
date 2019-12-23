@@ -21,7 +21,7 @@ function createSampleDistanceSlider(
     } ${style.sampleDistanceButton}">
       ${sampleDistanceIcon}
     </div>
-    <input type="range" min="0" max="1" value="0.3" step="0.01"
+    <input type="range" min="0" max="1" value="0" step="0.01"
       class="${style.slider} ${store.id}-spacing" />`;
   const spacingElement = sliderEntry.querySelector(`.${store.id}-spacing`);
   function updateSpacing() {

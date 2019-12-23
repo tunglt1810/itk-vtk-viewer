@@ -1028,6 +1028,8 @@ const createViewer = (
 
   publicAPI.getTransferFunctionWidget = () => store.imageUI.transferFunctionWidget;
 
+  publicAPI.getRepresentationProxy = () => store.imageUI.representationProxy;
+
   return publicAPI;
 };
 
