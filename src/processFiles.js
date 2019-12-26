@@ -47,7 +47,7 @@ const processFiles = (container, { files, use2D }) => {
       console.log('itk image', itkImage);
       const imageData = vtkITKHelper.convertItkToVtkImage(itkImage);
       const is3D = itkImage.imageType.dimension === 3 && !use2D;
-
+      console.log('vtk image', imageData);
       resolve(
         createViewer(container, {
           image: imageData,

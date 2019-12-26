@@ -1,10 +1,10 @@
 import vtkMouseRangeManipulator from 'vtk.js/Sources/Interaction/Manipulators/MouseRangeManipulator';
 
-const addTransferFunctionMouseManipulator = (store) => {
+const addTransferFunctionMouseManipulator = (store, mouseButton = 1) => {
   const transferFunctionWidget = store.imageUI.transferFunctionWidget;
 
   const rangeManipulator = vtkMouseRangeManipulator.newInstance({
-    button: 1
+    button: mouseButton
   });
 
   const windowMotionScale = 150.0;

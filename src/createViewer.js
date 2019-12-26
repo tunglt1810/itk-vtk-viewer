@@ -977,7 +977,7 @@ const createViewer = (
         break;
       case 'Wwwc':
         store.itkVtkView.setPresetToInteractor3D(defaultPresets);
-        addTransferFunctionMouseManipulator(store);
+        addTransferFunctionMouseManipulator(store, 1);
         break;
       case 'Zoom':
         store.itkVtkView.setPresetToInteractor3D(inractorPresets.Zoom);
@@ -987,7 +987,9 @@ const createViewer = (
         break;
       default: break;
     }
+    addTransferFunctionMouseManipulator(store, 2);
   };
+  addTransferFunctionMouseManipulator(store, 2);
 
   publicAPI.togglePassiveTool = (passiveTool) => {
     switch (passiveTool) {
