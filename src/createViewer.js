@@ -913,6 +913,7 @@ const createViewer = (
   }
 
   const div = document.createElement('div');
+  div.classList.add('3d-command-button');
   const btnRotate = document.createElement('button');
   btnRotate.innerHTML = 'Rotate';
   div.appendChild(btnRotate);
