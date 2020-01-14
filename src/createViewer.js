@@ -177,7 +177,7 @@ const createViewer = (
 
           const piecewiseFunction = vtkPiecewiseFunction.newInstance();
           store.imageUI.piecewiseFunction = piecewiseFunction;
-          const haveBackground = uniqueLabels[0] === 0 ? true: false;
+          const haveBackground = uniqueLabels[0] === 0;
           if (haveBackground) {
             piecewiseFunction.addPoint(uniqueLabels[0] - 0.5, 0.0, 0.5, 1.0);
           } else {
