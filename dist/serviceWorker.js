@@ -1,7 +1,35 @@
-importScripts('workbox-sw.prod.v2.1.2.js');
+/**
+ * Welcome to your Workbox-powered service worker!
+ *
+ * You'll need to register this file in your web app and you should
+ * disable HTTP caching for this file too.
+ * See https://goo.gl/nhQhGp
+ *
+ * The rest of the code is auto-generated. Please don't update this file
+ * directly; instead, make changes to your Workbox build configuration
+ * and re-run your build process.
+ * See https://goo.gl/2aRDsh
+ */
 
-const workboxSW = new self.WorkboxSW({clientsClaim: true})
-workboxSW.precache([
+importScripts("workbox-v4.3.1/workbox-sw.js");
+workbox.setConfig({modulePathPrefix: "workbox-v4.3.1"});
+
+importScripts(
+  "precache-manifest.870d42406272213b6d5be017dabe759a.js"
+);
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+/**
+ * The workboxSW.precacheAndRoute() method efficiently caches and responds to
+ * requests for URLs in the manifest.
+ * See https://goo.gl/S9QRab
+ */
+self.__precacheManifest = [
   {
     "url": "favicon-32x32.png",
     "revision": "7b1da026f1c9dc9d8caadbe4bdb7b2a8"
@@ -16,21 +44,13 @@ workboxSW.precache([
   },
   {
     "url": "itkVtkViewerCDN.js",
-    "revision": "8c2934ec64a6703d198a36292c9b1d04"
+    "revision": "2b732770765b1db10569f1f86b4bd5ba"
   },
   {
     "url": "workbox-sw.prod.v2.1.3.js",
     "revision": "a9890beda9e5f17e4c68f42324217941"
   }
-])
+].concat(self.__precacheManifest || []);
+workbox.precaching.precacheAndRoute(self.__precacheManifest, {});
 
-workboxSW.router.registerRoute(
-  /\.js|\.png|\.wasm$/,
-  workboxSW.strategies.staleWhileRevalidate({
-  cacheName: 'staleWhileRevalidateContent',
-  cacheExpiration: {
-    maxEntries: 50,
-    maxAgeSeconds: 7 * 24 * 60 * 60 * 26,
-    }
-  })
-);
+workbox.routing.registerRoute(/\.js|\.png|\.wasm$/, new workbox.strategies.StaleWhileRevalidate({ "cacheName":"itk-vtk-viewer-StaleWhileRevalidate", plugins: [new workbox.expiration.Plugin({ maxEntries: 50, maxAgeSeconds: 1209600, purgeOnQuotaError: false })] }), 'GET');
