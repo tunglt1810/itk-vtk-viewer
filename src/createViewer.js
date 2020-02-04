@@ -73,7 +73,7 @@ const createViewer = (
     return null;
   }
 
-  UserInterface.addLogo(store.container);
+  // UserInterface.addLogo(store.container);
 
   UserInterface.createMainUI(
     rootContainer,

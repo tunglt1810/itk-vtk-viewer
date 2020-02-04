@@ -8,6 +8,7 @@ import vtkMapper from 'vtk.js/Sources/Rendering/Core/Mapper';
 import vtkCoordinate from 'vtk.js/Sources/Rendering/Core/Coordinate';
 import vtkWidgetManager from 'vtk.js/Sources/Widgets/Core/WidgetManager';
 import * as vtkMath from 'vtk.js/Sources/Common/Core/Math';
+import setupOrientationMarker from './setupOrientationMarker';
 
 const CursorCornerAnnotation =
   '<table style="margin-left: 0;"><tr><td style="margin-left: auto; margin-right: 0;">Index:</td><td>${iIndex},</td><td>${jIndex},</td><td>${kIndex}</td></tr><tr><td style="margin-left: auto; margin-right: 0;">Position:</td><td>${xPosition},</td><td>${yPosition},</td><td>${zPosition}</td></tr><tr><td style="margin-left: auto; margin-right: 0;"">Value:</td><td>${value}</td></tr></table>';
@@ -457,6 +458,8 @@ function ItkVtkViewProxy(publicAPI, model) {
       publicAPI.renderLater();
     }
   }
+
+  setupOrientationMarker(model);
 }
 
 // ----------------------------------------------------------------------------

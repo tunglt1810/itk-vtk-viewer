@@ -53,7 +53,7 @@
           document.querySelector('.content'),
           'https://data.kitware.com/api/v1/file/564a65d58d777f7522dbfb61/download/data.nrrd'
           // 'http://192.168.1.32:8089/secured/ws/rest/v1/dicom/studies/1.2.840.113704.9.1000.16.0.20190501105318234/series/1.2.840.113704.9.1000.16.1.2019050110534789300020003/out.json'
-      ).then(publicAPI => {window.publicAPI = publicAPI; console.log(publicAPI)});
+      ).then(publicAPI => {window.publicAPI = publicAPI; console.log(publicAPI); publicAPI.getViewProxy().setOrientationAxesVisibility(false)});
     </script>
   </body>
 </html>
