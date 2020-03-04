@@ -1,34 +1,48 @@
 import '@babel/polyfill';
 import vtkURLExtract from 'vtk.js/Sources/Common/Core/URLExtract';
+import getFileExtension from 'itk/getFileExtension';
 import fetchBinaryContent from './fetchBinaryContent';
 import processCornerstoneImages from './processCornerstoneImages';
 import processFiles from './processFiles';
 import UserInterface from './UserInterface';
 import createFileDragAndDrop from './UserInterface/createFileDragAndDrop';
 import style from './UserInterface/ItkVtkViewer.module.css';
+import ZarrPyramidManager from './ZarrPyramidManager';
+import createViewer from './createViewer';
 
 
 let doNotInitViewers = false;
 
-export {default as createViewer} from './createViewer';
+export { default as createViewer } from './createViewer';
 
 export function createViewerFromLocalFiles(container) {
   doNotInitViewers = true;
   createFileDragAndDrop(container, processFiles);
 }
 
-export function createViewerFromUrl(el, url, use2D = false) {
+export async function createViewerFromUrl(el, url, use2D = false) {
   UserInterface.emptyContainer(el);
   const progressCallback = UserInterface.createLoadingProgress(el);
 
-  return fetchBinaryContent(url, progressCallback).then((arrayBuffer) => {
-    const file = new File(
-      [new Blob([arrayBuffer])],
-      url.split('/').slice(-1)[0]
-    );
-    console.log(file);
-    return processFiles(el, { files: [file], use2D });
-  });
+  const extension = getFileExtension(url);
+  if (extension === 'zarr') {
+    const metadata = await ZarrPyramidManager.parseMetadata(url);
+    const pyramidManager = new ZarrPyramidManager(url, metadata);
+    // Side effect to keep the spinner going
+    const topLevelLargestImage = await pyramidManager.topLevelLargestImage();
+    const use2D = pyramidManager.metadata[0].pixelArrayMetadata.shape.length === 2;
+    return createViewer(el, {
+      pyramidManager,
+      use2D
+    });
+  }
+  const arrayBuffer = await fetchBinaryContent(url, progressCallback);
+  const file = new File(
+    [new Blob([arrayBuffer])],
+    url.split('/').slice(-1)[0]
+  );
+  console.log(file);
+  return processFiles(el, { files: [file], use2D });
 }
 
 export function initializeEmbeddedViewers() {

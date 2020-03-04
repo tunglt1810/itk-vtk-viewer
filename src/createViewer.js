@@ -3,6 +3,7 @@ import macro from 'vtk.js/Sources/macro';
 import vtkLookupTableProxy from 'vtk.js/Sources/Proxy/Core/LookupTableProxy';
 import vtkPiecewiseFunctionProxy from 'vtk.js/Sources/Proxy/Core/PiecewiseFunctionProxy';
 import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction';
+import vtkITKHelper from 'vtk.js/Sources/Common/DataModel/ITKHelper';
 
 import ResizeSensor from 'css-element-queries/src/ResizeSensor';
 
@@ -31,7 +32,15 @@ function applyStyle(el, style) {
 
 const createViewer = (
   rootContainer,
-  { image, labelMap, geometries, pointSets, use2D = false, rotate = true, viewerStyle, viewerState }
+  { image,
+    pyramidManager,
+    labelMap,
+    geometries,
+    pointSets,
+    use2D = false,
+    rotate = true,
+    viewerStyle,
+    viewerState }
 ) => {
   UserInterface.emptyContainer(rootContainer);
 
@@ -109,7 +118,7 @@ const createViewer = (
           store.imageUI.colorRanges = new Array(numberOfComponents);
           const volume = store.imageUI.representationProxy.getVolumes()[0]
           const volumeProperty = volume.getProperty()
-          const dataArray = image.getPointData().getScalars();
+          const dataArray = store.imageUI.image.getPointData().getScalars();
           for (let component = 0; component < numberOfComponents; component++) {
             store.imageUI.lookupTableProxies[component] = vtkLookupTableProxy.newInstance();
             store.imageUI.piecewiseFunctionProxies[component] = vtkPiecewiseFunctionProxy.newInstance();
@@ -198,7 +207,7 @@ const createViewer = (
 
         // Slices share the same lookup table as the volume rendering.
         // Todo use all lookup tables on slice
-        if (!!image) {
+        if (!!store.imageUI.image) {
           const lut = store.imageUI.lookupTableProxies[store.imageUI.selectedComponentIndex].getLookupTable();
           const sliceActors = store.imageUI.representationProxy.getActors();
           sliceActors.forEach((actor) => {
@@ -251,6 +260,18 @@ const createViewer = (
     }
   );
   store.imageUI.image = image;
+  reaction(() => {
+      return store.imageUI.pyramidManager;
+    },
+
+    (pyramidManager) => {
+      pyramidManager.topLevelLargestImage().then((topLevelImage) => {
+        const imageData = vtkITKHelper.convertItkToVtkImage(topLevelImage);
+        store.imageUI.image = imageData;
+      })
+    }
+  );
+  store.imageUI.pyramidManager = pyramidManager;
   if (!!labelMap && !!!image) {
     // trigger reaction
     store.imageUI.labelMap = null;
