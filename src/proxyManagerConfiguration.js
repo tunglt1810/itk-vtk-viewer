@@ -7,21 +7,20 @@ import vtkVolumeRepresentationProxy from 'vtk.js/Sources/Proxy/Representations/V
 import ItkVtkView from './ItkVtkViewProxy';
 import vtkPointSetRepresentationProxy from './vtk/PointSetRepresentationProxy';
 
-
 const commonInteractor = [
   { type: 'pan', options: { button: 3 } }, // Pan on Right button drag
   { type: 'pan', options: { button: 1, shift: true } }, // Pan on Shift + Left button drag
   { type: 'rotate', options: { button: 1, control: true } }, // Zoom on Ctrl + Left button drag
   { type: 'zoom', options: { dragEnabled: false, scrollEnabled: true } }, // Zoom on scroll
-];
+]
 
 const interactorStyle3D = commonInteractor.concat([
   { type: 'rotate', options: { button: 1 } }, // Rotate on Left button drag
-]);
+])
 
 const interactorStyle2D = commonInteractor.concat([
   { type: 'pan', options: { button: 1 } }, // Pan on Left button drag
-]);
+])
 
 const proxyManagerConfiguration = {
   definitions: {
@@ -79,6 +78,6 @@ const proxyManagerConfiguration = {
       vtkImageData: { name: 'Volume' },
     },
   },
-};
+}
 
-export default proxyManagerConfiguration;
+export default proxyManagerConfiguration

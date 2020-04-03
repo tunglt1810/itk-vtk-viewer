@@ -2,7 +2,9 @@ const dtypeToTypedArray = new Map([
   ['<b', Int8Array],
   ['<B', Uint8Array],
   ['<u1', Uint8Array],
+  ['|u1', Uint8Array],
   ['<i1', Int8Array],
+  ['|i1', Int8Array],
   ['<u2', Uint16Array],
   ['<i2', Int16Array],
   ['<u4', Uint32Array],
@@ -12,4 +14,4 @@ const dtypeToTypedArray = new Map([
   ['<f8', Float64Array],
 ])
 
-export default dtypeToTypedArray;
+export default dtypeToTypedArray

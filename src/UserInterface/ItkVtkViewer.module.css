@@ -79,6 +79,16 @@
   z-index: 100;
 }
 
+.fpsMonitor {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  borderRadius: 5px;
+  background: rgba(255, 255, 255, 0.4);
+  cursor: pointer;
+  z-index: 101;
+}
+
 [itk-vtk-tooltip] {
     position: relative;
 }
@@ -323,7 +333,7 @@
   width: 1.2em;
 }
 
-.distanceLabel {
+.distanceLabelCommon {
   border: none;
   background: transparent;
   font-size: 1.2em;
@@ -332,12 +342,10 @@
 }
 
 .distanceLabelBrightBG {
-  composes: distanceLabel;
   color: black;
 }
 
 .distanceLabelDarkBG {
-  composes: distanceLabel;
   color: white;
 }
 
@@ -508,7 +516,7 @@ select:focus {
   width: 5px;
 }
 
-.sliderLabel {
+.sliderLabelCommon {
   padding-left: 6px;
   padding-right: 6px;
   font-size: 1.1em;
@@ -516,12 +524,10 @@ select:focus {
 }
 
 .sliderLabelBrightBG {
-  composes: sliderLabel;
   color: black;
 }
 
 .sliderLabelDarkBG {
-  composes: sliderLabel;
   color: white;
 }
 
