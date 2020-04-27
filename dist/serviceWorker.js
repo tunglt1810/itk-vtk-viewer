@@ -40,11 +40,11 @@ self.__precacheManifest = [
   },
   {
     "url": "itkVtkViewer.js",
-    "revision": "9ce5272472114985036af3aaf96ead3e"
+    "revision": "6ea4a96719b8d6a39c82f76227859bc0"
   },
   {
     "url": "itkVtkViewerCDN.js",
-    "revision": "8f3102744acf47db10f45a6a528274fc"
+    "revision": "91eb41492344ce0f641fbb2366c6a839"
   },
   {
     "url": "workbox-sw.prod.v2.1.3.js",
