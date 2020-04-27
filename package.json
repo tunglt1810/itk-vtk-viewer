@@ -81,13 +81,5 @@
   },
   "bin": {
     "itk-vtk-viewer": "./bin/itk-vtk-viewer-cli.js"
-  },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
-  "lint-staged": {
-    "*.js": "prettier --write"
   }
 }
