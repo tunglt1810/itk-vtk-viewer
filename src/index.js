@@ -127,4 +127,4 @@ export function processParameters(
 
 export { processFiles, processCornerstoneImages };
 // Ensure processing of embedded viewers
-setTimeout(initializeEmbeddedViewers, 100)
+// setTimeout(initializeEmbeddedViewers, 100)
