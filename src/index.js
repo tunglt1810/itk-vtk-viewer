@@ -2,6 +2,7 @@ import vtkURLExtract from 'vtk.js/Sources/Common/Core/URLExtract'
 import getFileExtension from 'itk/getFileExtension'
 import processCornerstoneImages from './processCornerstoneImages';
 import fetchBinaryContent from './fetchBinaryContent'
+import fetchJsonContent from './fetchJsonContent'
 import { processFiles } from './processFiles'
 import UserInterface from './UserInterface'
 import createFileDragAndDrop from './UserInterface/createFileDragAndDrop'
@@ -28,35 +29,101 @@ export async function createViewerFromFiles(el, files, use2D = false) {
   return processFiles(el, { files: files, use2D })
 }
 
-export async function createViewerFromUrl(el, urls, use2D = false) {
+export async function createViewerFromUrl(
+  el,
+  {
+    files = [],
+    image,
+    multiscaleImage,
+    labelMap,
+    multiscaleLabelMap,
+    labelMapNames = null,
+    rotate = true,
+    use2D = false,
+  }
+) {
   UserInterface.emptyContainer(el)
   const progressCallback = UserInterface.createLoadingProgress(el)
-  const url = urls[0]
-  const extension = getFileExtension(url)
-  if (extension === 'zarr') {
-    console.time('meta')
-    console.time('image')
-    const metadata = await ZarrMultiscaleManager.parseMetadata(url)
-    console.timeEnd('meta')
-    const multiscaleManager = new ZarrMultiscaleManager(url, metadata)
-    // Side effect to keep the spinner going
-    const topLevelLargestImage = await multiscaleManager.topLevelLargestImage()
-    console.timeEnd('image')
-    return createViewer(el, {
-      multiscaleManager,
-      use2D,
-    })
-  } else {
-    const files = []
-    for (const url of urls) {
+
+  let imageObject = null
+  let multiscaleImageObject = null
+  if (!!image) {
+    const extension = getFileExtension(image)
+    if (extension === 'zarr') {
+      console.time('meta')
+      console.time('image')
+      const metadata = await ZarrMultiscaleManager.parseMetadata(image)
+      console.timeEnd('meta')
+      multiscaleImageObject = new ZarrMultiscaleManager(image, metadata)
+      // Side effect to keep the spinner going
+      const topLevelLargestImage = await multiscaleImageObject.topLevelLargestImage()
+      console.timeEnd('image')
+    } else {
+      const arrayBuffer = await fetchBinaryContent(image, progressCallback)
+      imageObject = new File(
+        [new Blob([arrayBuffer])],
+        image.split('/').slice(-1)[0]
+      )
+    }
+  }
+
+  let labelMapObject = null
+  let multiscaleLabelMapObject = null
+  if (!!labelMap) {
+    const extension = getFileExtension(labelMap)
+    if (extension === 'zarr') {
+      console.time('labelMapMeta')
+      console.time('labelMap')
+      const metadata = await ZarrMultiscaleManager.parseMetadata(labelMap)
+      console.timeEnd('labelMapMeta')
+      multiscaleLabelMapObject = new ZarrMultiscaleManager(labelMap, metadata)
+      // Side effect to keep the spinner going
+      const topLevelLargestImage = await multiscaleLabelMapObject.topLevelLargestImage()
+      console.timeEnd('labelMap')
+    } else {
+      const arrayBuffer = await fetchBinaryContent(labelMap, progressCallback)
+      labelMapObject = new File(
+        [new Blob([arrayBuffer])],
+        labelMap.split('/').slice(-1)[0]
+      )
+    }
+  }
+
+  const fileObjects = []
+  for (const url of files) {
+    const extension = getFileExtension(url)
+    if (extension === 'zarr' && !!!multiscaleImageObject) {
+      console.time('meta')
+      console.time('image')
+      const metadata = await ZarrMultiscaleManager.parseMetadata(url)
+      console.timeEnd('meta')
+      multiscaleImageObject = new ZarrMultiscaleManager(url, metadata)
+      // Side effect to keep the spinner going
+      const topLevelLargestImage = await multiscaleImageObject.topLevelLargestImage()
+      console.timeEnd('image')
+    } else {
       const arrayBuffer = await fetchBinaryContent(url, progressCallback)
-      files.push(
+      fileObjects.push(
         new File([new Blob([arrayBuffer])], url.split('/').slice(-1)[0])
       )
     }
-
-    return processFiles(el, { files, use2D })
   }
+
+  let labelMapNameObject = null
+  if (!!labelMapNames) {
+    labelMapNameObject = await fetchJsonContent(labelMapNames)
+  }
+
+  return processFiles(el, {
+    files: fileObjects,
+    image: imageObject,
+    multiscaleImage: multiscaleImageObject,
+    labelMap: labelMapObject,
+    multiscaleLabelMap: multiscaleLabelMapObject,
+    labelMapNames: labelMapNameObject,
+    rotate,
+    use2D,
+  })
 }
 
 export function initializeEmbeddedViewers() {
@@ -75,7 +142,10 @@ export function initializeEmbeddedViewers() {
       el.style.width = Number.isFinite(Number(width)) ? `${width}px` : width
       el.style.height = Number.isFinite(Number(height)) ? `${height}px` : height
       const files = el.dataset.url.split(',')
-      createViewerFromUrl(el, files, !!el.dataset.use2D).then(viewer => {
+      createViewerFromUrl(el, {
+        files,
+        use2D: !!el.dataset.use2D,
+      }).then(viewer => {
         // Background color handling
         if (el.dataset.backgroundColor) {
           const color = el.dataset.backgroundColor
@@ -99,11 +169,7 @@ export function initializeEmbeddedViewers() {
   }
 }
 
-export function processParameters(
-  container,
-  addOnParameters = {},
-  keyName = 'fileToLoad'
-) {
+export function processURLParameters(container, addOnParameters = {}) {
   const userParams = Object.assign(
     {},
     vtkURLExtract.extractURLParameters(),
@@ -115,12 +181,27 @@ export function processParameters(
     myContainer.classList.add(style.fullscreenContainer)
   }
 
-  if (userParams[keyName]) {
-    return createViewerFromUrl(
-      myContainer,
-      userParams[keyName].split(','),
-      !!userParams.use2D
-    )
+  let filesToLoad = []
+  if (userParams.fileToLoad) {
+    filesToLoad = userParams.fileToLoad.split(',')
+  }
+  if (userParams.filesToLoad) {
+    filesToLoad = userParams.filesToLoad.split(',')
+  }
+  let rotate = true
+  if (typeof userParams.rotate !== 'undefined') {
+    rotate = vtkURLExtract.toNativeType(userParams.rotate)
+  }
+
+  if (filesToLoad.length || userParams.image || userParams.labelMap) {
+    return createViewerFromUrl(myContainer, {
+      files: filesToLoad,
+      image: userParams.image,
+      labelMap: userParams.labelMap,
+      labelMapNames: userParams.labelMapNames,
+      rotate,
+      use2D: !!userParams.use2D,
+    })
   }
   return null
 }

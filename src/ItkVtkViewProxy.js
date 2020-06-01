@@ -10,7 +10,7 @@ import vtkWidgetManager from 'vtk.js/Sources/Widgets/Core/WidgetManager'
 import * as vtkMath from 'vtk.js/Sources/Common/Core/Math'
 
 const CursorCornerAnnotation =
-  '<table class="corner-annotation" style="margin-left: 0;"><tr><td style="margin-left: auto; margin-right: 0;">Index:</td><td>${iIndex},</td><td>${jIndex},</td><td>${kIndex}</td></tr><tr><td style="margin-left: auto; margin-right: 0;">Position:</td><td>${xPosition},</td><td>${yPosition},</td><td>${zPosition}</td></tr><tr><td style="margin-left: auto; margin-right: 0;"">Value:</td><td>${value}</td></tr></table>'
+  '<table class="corner-annotation" style="margin-left: 0;"><tr><td style="margin-left: auto; margin-right: 0;">Index:</td><td>${iIndex},</td><td>${jIndex},</td><td>${kIndex}</td></tr><tr><td style="margin-left: auto; margin-right: 0;">Position:</td><td>${xPosition},</td><td>${yPosition},</td><td>${zPosition}</td></tr><tr><td style="margin-left: auto; margin-right: 0;"">Value:</td><td style="text-align:center;" colspan="3">${value}</td></tr><tr ${annotationStyle}><td style="margin-left: auto; margin-right: 0;">Label:</td><td style="text-align:center;" colspan="3">${annotation}</td></tr></table>'
 
 const { vtkErrorMacro } = macro
 
@@ -93,6 +93,18 @@ function ItkVtkViewProxy(publicAPI, model) {
     }
   }
 
+  function getAnnotationText(value) {
+    const labelValue = value[model.labelIndex]
+    if (model.labelNames !== null && model.labelNames.has(labelValue)) {
+      return model.labelNames.get(labelValue)
+    }
+    return labelValue
+  }
+
+  function getAnnotationStyle() {
+    return model.labelNames === null ? 'style="display: none;"' : ''
+  }
+
   function updateAnnotations(callData) {
     const renderPosition = callData.position
     model.annotationPicker.pick(
@@ -104,28 +116,40 @@ function ItkVtkViewProxy(publicAPI, model) {
       const imageData = model.volumeRepresentation.getInputDataSet()
       const size = imageData.getDimensions()
       const scalarData = imageData.getPointData().getScalars()
-      const value = scalarData.getTuple(
+      const fusedValue = scalarData.getTuple(
         size[0] * size[1] * ijk[2] + size[0] * ijk[1] + ijk[0]
       )
+      const annotation = getAnnotationText(fusedValue)
       const worldPositions = model.annotationPicker.getPickedPositions()
       if (ijk.length > 0 && worldPositions.length > 0) {
         const worldPosition = worldPositions[0]
         model.dataProbeCubeSource.setCenter(worldPosition)
         model.dataProbeActor.setVisibility(true)
         model.dataProbeFrameActor.setVisibility(true)
-        publicAPI.updateCornerAnnotation({
+        model.lastPickedValues = {
           iIndex: ijk[0],
           jIndex: ijk[1],
           kIndex: ijk[2],
           xPosition: String(worldPosition[0]).substring(0, 4),
           yPosition: String(worldPosition[1]).substring(0, 4),
           zPosition: String(worldPosition[2]).substring(0, 4),
-          value: value,
-        })
+          value:
+            model.labelIndex === null
+              ? fusedValue
+              : fusedValue.slice(0, model.labelIndex),
+          label:
+            model.labelIndex === null ? null : fusedValue[model.labelIndex],
+          annotation,
+          annotationStyle: getAnnotationStyle(),
+        }
+        publicAPI.updateCornerAnnotation(model.lastPickedValues)
       } else {
         model.dataProbeActor.setVisibility(false)
         model.dataProbeFrameActor.setVisibility(false)
+        model.lastPickedValues = null
       }
+    } else {
+      model.lastPickedValues = null
     }
   }
 
@@ -148,11 +172,18 @@ function ItkVtkViewProxy(publicAPI, model) {
     yPosition: '&nbsp;N/A',
     zPosition: '&nbsp;N/A',
     value: 'N/A&nbsp;',
+    annotation: 'N/A&nbsp;',
+    annotationStyle: getAnnotationStyle(),
   })
   publicAPI.setAnnotationOpacity(0.0)
   model.annotationPicker = vtkPointPicker.newInstance()
   model.annotationPicker.setPickFromList(1)
   model.annotationPicker.initializePickList()
+  model.interactor.onLeftButtonPress(event => {
+    if (model.clickCallback && model.lastPickedValues) {
+      model.clickCallback(model.lastPickedValues)
+    }
+  })
   model.interactor.onMouseMove(event => {
     updateAnnotations(event)
   })
@@ -474,6 +505,19 @@ const DEFAULT_VALUES = {
   viewPlanes: false,
   rotate: false,
   units: '',
+  labelIndex: null,
+  labelNames: null,
+  clickCallback: null,
+  lastPickedValues: {
+    iIndex: null,
+    jIndex: null,
+    kIndex: null,
+    xPosition: null,
+    yPosition: null,
+    zPosition: null,
+    value: null,
+    label: null,
+  },
 }
 
 // ----------------------------------------------------------------------------
@@ -484,7 +528,12 @@ export function extend(publicAPI, model, initialValues = {}) {
   vtkViewProxy.extend(publicAPI, model, initialValues)
   macro.get(publicAPI, model, ['viewMode', 'viewPlanes', 'rotate'])
 
-  macro.setGet(publicAPI, model, ['units'])
+  macro.setGet(publicAPI, model, [
+    'units',
+    'labelNames',
+    'labelIndex',
+    'clickCallback',
+  ])
 
   // Object specific methods
   ItkVtkViewProxy(publicAPI, model)

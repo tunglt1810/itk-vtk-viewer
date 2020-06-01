@@ -1,19 +1,23 @@
 import vtkProxyManager from 'vtk.js/Sources/Proxy/Core/ProxyManager'
 import macro from 'vtk.js/Sources/macro'
-import vtkLookupTableProxy from 'vtk.js/Sources/Proxy/Core/LookupTableProxy'
-import vtkPiecewiseFunctionProxy from 'vtk.js/Sources/Proxy/Core/PiecewiseFunctionProxy'
-import vtkPiecewiseFunction from 'vtk.js/Sources/Common/DataModel/PiecewiseFunction'
 import vtkITKHelper from 'vtk.js/Sources/Common/DataModel/ITKHelper'
 
 import ResizeSensor from 'css-element-queries/src/ResizeSensor'
 
 import proxyConfiguration from './proxyManagerConfiguration'
 import UserInterface from './UserInterface'
+import createLabelMapColorWidget from './UserInterface/Image/createLabelMapColorWidget'
+import createLabelMapWeightWidget from './UserInterface/Image/createLabelMapWeightWidget'
+import createPlaneIndexSliders from './UserInterface/Image/createPlaneIndexSliders'
 import addKeyboardShortcuts from './addKeyboardShortcuts'
 import rgb2hex from './UserInterface/rgb2hex'
 import ViewerStore from './ViewerStore'
-import applyCategoricalColorToLookupTableProxy from './UserInterface/applyCategoricalColorToLookupTableProxy'
-import updateSliceProperties from './Rendering/updateSliceProperties'
+import createLabelMapRendering from './Rendering/createLabelMapRendering'
+import createImageRendering from './Rendering/createImageRendering'
+import updateLabelMapComponentWeight from './Rendering/updateLabelMapComponentWeight'
+import updateLabelMapPiecewiseFunction from './Rendering/updateLabelMapPiecewiseFunction'
+import updateVolumeProperties from './Rendering/updateVolumeProperties'
+import updateGradientOpacity from './Rendering/updateGradientOpacity'
 
 import { autorun, observable, reaction } from 'mobx'
 import addTransferFunctionMouseManipulator from './addTransferFunctionMouseManipulator';
@@ -23,8 +27,10 @@ const createViewer = (
   rootContainer,
   {
     image,
-    multiscaleManager,
+    multiscaleImage,
     labelMap,
+    multiscaleLabelMap,
+    labelMapNames,
     geometries,
     pointSets,
     use2D = false,
@@ -48,9 +54,6 @@ const createViewer = (
   UserInterface.applyContainerStyle(rootContainer, store, viewerStyle)
 
   let updatingImage = false
-  if (!!labelMap) {
-    store.imageUI.labelMap = labelMap
-  }
 
   UserInterface.createMainUI(rootContainer, store, use2D, uiContainer)
 
@@ -65,8 +68,10 @@ const createViewer = (
       if (!!!fusedImage) {
         return
       }
-      const numberOfComponents = store.imageUI.numberOfComponents
+
+      let initialRender = false
       if (!!!store.imageUI.representationProxy) {
+        initialRender = true
         store.imageUI.source.setInputData(fusedImage)
 
         proxyManager.createRepresentationInAllViews(store.imageUI.source)
@@ -75,152 +80,6 @@ const createViewer = (
           store.itkVtkView
         )
 
-        if (!!store.imageUI.image) {
-          store.imageUI.lookupTableProxies = new Array(numberOfComponents)
-          store.imageUI.piecewiseFunctionProxies = new Array(numberOfComponents)
-          store.imageUI.componentVisibilities = observable(
-            new Array(numberOfComponents)
-          )
-          store.imageUI.colorMaps = new Array(numberOfComponents)
-          store.imageUI.colorRanges = new Array(numberOfComponents)
-          const volume = store.imageUI.representationProxy.getVolumes()[0]
-          const volumeProperty = volume.getProperty()
-          volumeProperty.setIndependentComponents(true)
-          const dataArray = store.imageUI.image.getPointData().getScalars()
-          for (let component = 0; component < numberOfComponents; component++) {
-            store.imageUI.lookupTableProxies[
-              component
-            ] = vtkLookupTableProxy.newInstance()
-            store.imageUI.piecewiseFunctionProxies[
-              component
-            ] = vtkPiecewiseFunctionProxy.newInstance()
-            store.imageUI.componentVisibilities[component] = 1.0
-            store.imageUI.independentComponents = true
-            let preset = 'Viridis (matplotlib)'
-            // If a 2D RGB or RGBA
-            if (
-              use2D &&
-              dataArray.getDataType() === 'Uint8Array' &&
-              (numberOfComponents === 3 || numberOfComponents === 4)
-            ) {
-              preset = 'Grayscale'
-              store.imageUI.independentComponents = false
-            } else if (numberOfComponents === 1 && !!store.imageUI.labelMap) {
-              preset = 'Grayscale'
-            } else if (numberOfComponents === 2) {
-              switch (component) {
-                case 0:
-                  preset = 'BkMa'
-                  break
-                case 1:
-                  preset = 'BkCy'
-                  break
-              }
-            } else if (numberOfComponents === 3) {
-              switch (component) {
-                case 0:
-                  preset = 'BkRd'
-                  break
-                case 1:
-                  preset = 'BkGn'
-                  break
-                case 2:
-                  preset = 'BkBu'
-                  break
-              }
-            }
-            store.imageUI.colorMaps[component] = preset
-            store.imageUI.lookupTableProxies[component].setPresetName(preset)
-
-            const lut = store.imageUI.lookupTableProxies[
-              component
-            ].getLookupTable()
-            const range = dataArray.getRange(component)
-            store.imageUI.colorRanges[component] = range
-            lut.setMappingRange(range[0], range[1])
-            volumeProperty.setRGBTransferFunction(component, lut)
-
-            const piecewiseFunction = store.imageUI.piecewiseFunctionProxies[
-              component
-            ].getPiecewiseFunction()
-            volumeProperty.setScalarOpacity(component, piecewiseFunction)
-
-            const visibility = store.imageUI.componentVisibilities[component]
-            volumeProperty.setComponentWeight(component, visibility)
-          }
-
-          // Now for the slice rendering
-          updateSliceProperties(store)
-        }
-
-        if (!!store.imageUI.labelMap) {
-          // label map initialization
-          const lutProxy = vtkLookupTableProxy.newInstance()
-          store.imageUI.labelMapLookupTableProxy = lutProxy
-
-          const labelMapScalars = store.imageUI.labelMap
-            .getPointData()
-            .getScalars()
-          const labelMapData = labelMapScalars.getData()
-          const uniqueLabelsSet = new Set(labelMapData)
-          const uniqueLabels = Array.from(uniqueLabelsSet)
-          // The volume mapper currently only supports ColorTransferFunction's,
-          // not LookupTable's
-          // lut.setAnnotations(uniqueLabels, uniqueLabels);
-          uniqueLabels.sort()
-          store.imageUI.labelMapLabels = uniqueLabels
-
-          applyCategoricalColorToLookupTableProxy(
-            lutProxy,
-            uniqueLabels,
-            store.imageUI.labelMapCategoricalColor
-          )
-
-          const volume = store.imageUI.representationProxy.getVolumes()[0]
-          const volumeProperty = volume.getProperty()
-
-          const piecewiseFunction = vtkPiecewiseFunction.newInstance()
-          store.imageUI.piecewiseFunction = piecewiseFunction
-          const haveBackground = uniqueLabels[0] === 0 ? true : false
-          if (haveBackground) {
-            piecewiseFunction.addPoint(uniqueLabels[0] - 0.5, 0.0, 0.5, 1.0)
-          } else {
-            piecewiseFunction.addPoint(uniqueLabels[0] - 0.5, 1.0, 0.5, 1.0)
-          }
-          piecewiseFunction.addPoint(uniqueLabels[1] - 0.5, 1.0, 0.5, 1.0)
-          piecewiseFunction.addPoint(
-            uniqueLabels[uniqueLabels.length - 1] + 0.5,
-            1.0,
-            0.5,
-            1.0
-          )
-          volumeProperty.setScalarOpacity(numberOfComponents, piecewiseFunction)
-
-          const colorTransferFunction = lutProxy.getLookupTable()
-          colorTransferFunction.setMappingRange(
-            uniqueLabels[0],
-            uniqueLabels[uniqueLabels.length - 1]
-          )
-
-          volumeProperty.setRGBTransferFunction(
-            numberOfComponents,
-            colorTransferFunction
-          )
-          // volumeProperty.setUseGradientOpacity(numberOfComponents, false);
-          volumeProperty.setIndependentComponents(true)
-
-          // The slice shows the same lut as the volume for label map
-          const sliceActors = store.imageUI.representationProxy.getActors()
-          sliceActors.forEach(actor => {
-            const actorProp = actor.getProperty()
-            actorProp.setIndependentComponents(true)
-            actorProp.setRGBTransferFunction(
-              numberOfComponents,
-              colorTransferFunction
-            )
-          })
-        }
-
         if (use2D) {
           store.itkVtkView.setViewMode('ZPlane')
           store.itkVtkView.setOrientationAxesVisibility(false)
@@ -228,10 +87,56 @@ const createViewer = (
           store.itkVtkView.setViewMode('VolumeRendering')
         }
 
-        UserInterface.createImageUI(store, use2D)
         const annotationContainer = store.container.querySelector('.js-se')
         annotationContainer.style.fontFamily = 'monospace'
-      } else {
+      }
+
+      if (!!labelMapNames) {
+        store.itkVtkView.setLabelNames(labelMapNames)
+      }
+
+      if (!!store.imageUI.image && !!!store.imageUI.lookupTableProxies.length) {
+        createImageRendering(store, use2D)
+        updateVolumeProperties(store)
+      }
+
+      if (
+        !!store.imageUI.labelMap &&
+        !!!store.imageUI.labelMapLookupTableProxy
+      ) {
+        createLabelMapRendering(store)
+      }
+
+      if (!!store.imageUI.image && !!!store.imageUI.imageUIGroup) {
+        UserInterface.createImageUI(store, use2D)
+      }
+
+      if (!!store.imageUI.labelMap && !!!store.imageUI.labelMapColorUIGroup) {
+        createLabelMapColorWidget(store, store.mainUI.uiContainer)
+        createLabelMapWeightWidget(store, store.mainUI.uiContainer)
+
+        store.eventEmitter.on('imagePicked', lastPickedValues => {
+          if (lastPickedValues.value !== null) {
+            store.imageUI.selectedLabel = lastPickedValues.label
+            if (store.imageUI.selectedLabel !== 'all') {
+              const currentWeight =
+                store.imageUI.labelMapWeights[store.imageUI.selectedLabel]
+              if (currentWeight === 1.0) {
+                store.imageUI.labelMapWeights[store.imageUI.selectedLabel] =
+                  store.imageUI.labelMapAllWeight
+              } else {
+                store.imageUI.labelMapWeights[store.imageUI.selectedLabel] = 1.0
+              }
+            }
+          }
+        })
+      }
+
+      if (!use2D && !!!store.imageUI.placeIndexUIGroup) {
+        createPlaneIndexSliders(store, store.mainUI.uiContainer)
+      }
+
+      if (!initialRender) {
         if (updatingImage) {
           return
         }
@@ -239,67 +144,87 @@ const createViewer = (
 
         store.imageUI.source.setInputData(fusedImage)
 
-        const volume = store.imageUI.representationProxy.getVolumes()[0]
-        const volumeProperty = volume.getProperty()
-        for (let component = 0; component < numberOfComponents; component++) {
-          const lut = store.imageUI.lookupTableProxies[
-            component
-          ].getLookupTable()
-          volumeProperty.setRGBTransferFunction(component, lut)
-        }
+        updateVolumeProperties(store)
 
         const transferFunctionWidget = store.imageUI.transferFunctionWidget
-        transferFunctionWidget.setDataArray(
-          store.imageUI.image
-            .getPointData()
-            .getScalars()
-            .getData()
-        )
-        transferFunctionWidget.invokeOpacityChange(transferFunctionWidget)
-        transferFunctionWidget.modified()
+        if (transferFunctionWidget) {
+          transferFunctionWidget.setDataArray(
+            store.imageUI.image
+              .getPointData()
+              .getScalars()
+              .getData()
+          )
+          transferFunctionWidget.invokeOpacityChange(transferFunctionWidget)
+          transferFunctionWidget.modified()
+        }
+
         store.imageUI.croppingWidget.setVolumeMapper(
           store.imageUI.representationProxy.getMapper()
         )
         const cropFilter = store.imageUI.representationProxy.getCropFilter()
         cropFilter.reset()
         store.imageUI.croppingWidget.resetWidgetState()
+
         setTimeout(() => {
-          transferFunctionWidget.render()
+          !!transferFunctionWidget && transferFunctionWidget.render()
+          updateGradientOpacity(store)
+          const numberOfComponents = store.imageUI.numberOfComponents
+          // May need to update intensity preset in case labelMap was
+          // not yet loaded at time createImageRendering was called
+          if (numberOfComponents === 1 && !!store.imageUI.labelMap) {
+            const preset = 'Grayscale'
+            store.imageUI.colorMaps[0] = preset
+            store.imageUI.lookupTableProxies[0].setPresetName(preset)
+          }
+          updateLabelMapComponentWeight(store)
           store.renderWindow.render()
           updatingImage = false
         }, 0)
       }
+
+      if (!!store.imageUI.image) {
+        store.itkVtkView.setClickCallback(lastPickedValues => {
+          store.imageUI.lastPickedValues = lastPickedValues
+        })
+      }
     }
   )
   store.imageUI.image = image
+  if (!!labelMap) {
+    store.imageUI.labelMap = labelMap
+  }
+
+  reaction(
+    () => {
+      const multiscaleLabelMap = store.imageUI.multiscaleLabelMap
+      const multiscaleImage = store.imageUI.multiscaleImage
+      return { multiscaleImage, multiscaleLabelMap }
+    },
+
+    async ({ multiscaleImage, multiscaleLabelMap }) => {
+      if (!!!multiscaleImage && !!!multiscaleLabelMap) {
+        return
+      }
+      if (!!multiscaleLabelMap) {
+        const topLevelImage = await multiscaleLabelMap.topLevelLargestImage()
+        const imageData = vtkITKHelper.convertItkToVtkImage(topLevelImage)
+        store.imageUI.labelMap = imageData
+      }
+      if (!!multiscaleImage) {
+        const topLevelImage = await multiscaleImage.topLevelLargestImage()
+        const imageData = vtkITKHelper.convertItkToVtkImage(topLevelImage)
+        store.imageUI.image = imageData
+      }
+    }
+  )
+  store.imageUI.multiscaleImage = multiscaleImage
+  store.imageUI.multiscaleLabelMap = multiscaleLabelMap
 
   // After all the other "store.imageUI.image" reactions have run, we
   // need to trigger all of the transfer function widget
   // "store.imageUI.selectedComponent" reactions.
   for (let i = store.imageUI.numberOfComponents - 1; i >= 0; i--) {
     store.imageUI.selectedComponentIndex = i
-  }
-
-  reaction(
-    () => {
-      return store.imageUI.multiscaleManager
-    },
-
-    multiscaleManager => {
-      if (!!!multiscaleManager) {
-        return
-      }
-      multiscaleManager.topLevelLargestImage().then(topLevelImage => {
-        const imageData = vtkITKHelper.convertItkToVtkImage(topLevelImage)
-        store.imageUI.image = imageData
-      })
-    }
-  )
-  store.imageUI.multiscaleManager = multiscaleManager
-  if (!!labelMap && !!!image) {
-    // trigger reaction
-    store.imageUI.labelMap = null
-    store.imageUI.labelMap = labelMap
   }
 
   reaction(
@@ -507,6 +432,10 @@ const createViewer = (
     store.geometriesUI.geometries = geometries
   }
 
+  publicAPI.setLabelMap = labelMap => {
+    store.imageUI.labelMap = labelMap
+  }
+
   publicAPI.setUserInterfaceCollapsed = collapse => {
     const collapsed = store.mainUI.collapsed
     if ((collapse && !collapsed) || (!collapse && collapsed)) {
@@ -518,22 +447,108 @@ const createViewer = (
     return store.mainUI.collapsed
   }
 
-  const toggleUserInterfaceCollapsedHandlers = []
+  const eventEmitter = store.eventEmitter
+
+  const eventNames = [
+    'imagePicked',
+    'labelMapWeightsChanged',
+    'toggleUserInterfaceCollapsed',
+    'toggleAnnotations',
+    'toggleRotate',
+    'toggleFullscreen',
+    'toggleInterpolation',
+    'toggleCroppingPlanes',
+    'croppingPlanesChanged',
+    'resetCrop',
+    'changeColorRange',
+    'selectColorMap',
+    'viewModeChanged',
+    'xSliceChanged',
+    'ySliceChanged',
+    'zSliceChanged',
+    'toggleShadow',
+    'toggleSlicingPlanes',
+    'gradientOpacityChanged',
+    'blendModeChanged',
+    'pointSetRepresentationChanged',
+  ]
+
+  publicAPI.getEventNames = () => eventNames
+
+  publicAPI.on = (...onArgs) => eventEmitter.on(...onArgs)
+  publicAPI.off = (...offArgs) => eventEmitter.off(...offArgs)
+  publicAPI.once = (...onceArgs) => eventEmitter.once(...onceArgs)
+
+  publicAPI.getEventEmitter = () => eventEmitter
+
+  reaction(
+    () => {
+      return store.imageUI.lastPickedValues
+    },
+    () => {
+      const lastPickedValues = store.imageUI.lastPickedValues
+      eventEmitter.emit('imagePicked', lastPickedValues)
+    }
+  )
+
+  reaction(
+    () => store.imageUI.labelMapWeights.slice(),
+    () => {
+      const labels = store.imageUI.labelMapLabels.slice()
+      const weights = store.imageUI.labelMapWeights.slice()
+      eventEmitter.emit('labelMapWeightsChanged', { labels, weights })
+    }
+  )
+
+  // Replace all weights
+  publicAPI.setLabelMapWeights = weights => {
+    if (weights.length !== store.imageUI.labelMapWeights.length) {
+      console.error(
+        `Provided ${weights.length} weights, expecting ${store.imageUI.labelMapWeights.length}`
+      )
+      return false
+    }
+
+    store.imageUI.labelMapWeights.replace(weights)
+    updateLabelMapPiecewiseFunction(store)
+    store.renderWindow.render()
+
+    return true
+  }
+
+  // Replace a subset of weights by providing parallel array of corresponding
+  // label values
+  publicAPI.updateLabelMapWeights = ({ labels, weights }) => {
+    const indicesToUpdate = []
+
+    labels.forEach((label, labelIdx) => {
+      const idx = store.imageUI.labelMapLabels.indexOf(label)
+      if (idx >= 0) {
+        indicesToUpdate.push(labelIdx)
+        store.imageUI.labelMapWeights[idx] = weights[labelIdx]
+      }
+    })
+
+    if (indicesToUpdate.length > 0) {
+      updateLabelMapPiecewiseFunction(store, indicesToUpdate)
+      store.renderWindow.render()
+      return true
+    }
+
+    return false
+  }
+
+  publicAPI.getLabelMapWeights = () => {
+    return {
+      labels: store.imageUI.labelMapLabels.slice(),
+      weights: store.imageUI.labelMapWeights.slice(),
+    }
+  }
+
   autorun(() => {
     const collapsed = store.mainUI.collapsed
-    toggleUserInterfaceCollapsedHandlers.forEach(handler => {
-      handler.call(null, collapsed)
-    })
+    eventEmitter.emit('toggleUserInterfaceCollapsed', collapsed)
   })
-
-  publicAPI.subscribeToggleUserInterfaceCollapsed = handler => {
-    const index = toggleUserInterfaceCollapsedHandlers.length
-    toggleUserInterfaceCollapsedHandlers.push(handler)
-    function unsubscribe() {
-      toggleUserInterfaceCollapsedHandlers[index] = null
-    }
-    return Object.freeze({ unsubscribe })
-  }
 
   // Start collapsed on mobile devices or small pages
   if (window.screen.availWidth < 768 || window.screen.availHeight < 800) {
@@ -544,22 +559,10 @@ const createViewer = (
     return store.itkVtkView.captureImage()
   }
 
-  const toggleAnnotationsHandlers = []
   autorun(() => {
     const enabled = store.mainUI.annotationsEnabled
-    toggleAnnotationsHandlers.forEach(handler => {
-      handler.call(null, enabled)
-    })
+    eventEmitter.emit('toggleAnnotations', enabled)
   })
-
-  publicAPI.subscribeToggleAnnotations = handler => {
-    const index = toggleAnnotationsHandlers.length
-    toggleAnnotationsHandlers.push(handler)
-    function unsubscribe() {
-      toggleAnnotationsHandlers[index] = null
-    }
-    return Object.freeze({ unsubscribe })
-  }
 
   publicAPI.setAnnotationsEnabled = enabled => {
     const annotations = store.mainUI.annotationsEnabled
@@ -568,22 +571,10 @@ const createViewer = (
     }
   }
 
-  const toggleRotateHandlers = []
   autorun(() => {
     const enabled = store.mainUI.rotateEnabled
-    toggleRotateHandlers.forEach(handler => {
-      handler.call(null, enabled)
-    })
+    eventEmitter.emit('toggleRotate', enabled)
   })
-
-  publicAPI.subscribeToggleRotate = handler => {
-    const index = toggleRotateHandlers.length
-    toggleRotateHandlers.push(handler)
-    function unsubscribe() {
-      toggleRotateHandlers[index] = null
-    }
-    return Object.freeze({ unsubscribe })
-  }
 
   publicAPI.setRotateEnabled = enabled => {
     const rotate = store.mainUI.rotateEnabled
@@ -592,22 +583,10 @@ const createViewer = (
     }
   }
 
-  const toggleFullscreenHandlers = []
   autorun(() => {
     const enabled = store.mainUI.fullscreenEnabled
-    toggleFullscreenHandlers.forEach(handler => {
-      handler.call(null, enabled)
-    })
+    eventEmitter.emit('toggleFullscreen', enabled)
   })
-
-  publicAPI.subscribeToggleFullscreen = handler => {
-    const index = toggleFullscreenHandlers.length
-    toggleFullscreenHandlers.push(handler)
-    function unsubscribe() {
-      toggleFullscreenHandlers[index] = null
-    }
-    return Object.freeze({ unsubscribe })
-  }
 
   publicAPI.setFullscreenEnabled = enabled => {
     const fullscreen = store.mainUI.fullscreenEnabled
@@ -619,19 +598,8 @@ const createViewer = (
   const toggleInterpolationHandlers = []
   autorun(() => {
     const enabled = store.mainUI.interpolationEnabled
-    toggleInterpolationHandlers.forEach(handler => {
-      handler.call(null, enabled)
-    })
+    eventEmitter.emit('toggleInterpolation', enabled)
   })
-
-  publicAPI.subscribeToggleInterpolation = handler => {
-    const index = toggleInterpolationHandlers.length
-    toggleInterpolationHandlers.push(handler)
-    function unsubscribe() {
-      toggleInterpolationHandlers[index] = null
-    }
-    return Object.freeze({ unsubscribe })
-  }
 
   publicAPI.setInterpolationEnabled = enabled => {
     const interpolation = store.mainUI.interpolationEnabled
@@ -643,19 +611,8 @@ const createViewer = (
   const toggleCroppingPlanesHandlers = []
   autorun(() => {
     const enabled = store.mainUI.croppingPlanesEnabled
-    toggleCroppingPlanesHandlers.forEach(handler => {
-      handler.call(null, enabled)
-    })
+    eventEmitter.emit('toggleCroppingPlanes', enabled)
   })
-
-  publicAPI.subscribeToggleCroppingPlanes = handler => {
-    const index = toggleCroppingPlanesHandlers.length
-    toggleCroppingPlanesHandlers.push(handler)
-    function unsubscribe() {
-      toggleCroppingPlanesHandlers[index] = null
-    }
-    return Object.freeze({ unsubscribe })
-  }
 
   publicAPI.setCroppingPlanesEnabled = enabled => {
     const cropping = store.mainUI.croppingPlanesEnabled
@@ -664,31 +621,15 @@ const createViewer = (
     }
   }
 
-  publicAPI.subscribeCroppingPlanesChanged = handler => {
-    return store.imageUI.addCroppingPlanesChangedHandler(handler)
-  }
-
-  publicAPI.subscribeResetCrop = handler => {
-    return store.imageUI.addResetCropHandler(handler)
-  }
-
-  const changeColorRangeHandlers = []
   autorun(() => {
     const colorRanges = store.imageUI.colorRanges
     const selectedComponentIndex = store.imageUI.selectedComponentIndex
-    changeColorRangeHandlers.forEach(handler => {
-      handler.call(null, componentIndex, colorRanges[componentIndex])
-    })
+    eventEmitter.emit(
+      'changeColorRange',
+      selectedComponentIndex,
+      colorRanges[selectedComponentIndex]
+    )
   })
-
-  publicAPI.subscribeChangeColorRange = handler => {
-    const index = changeColorRangeHandlers.length
-    changeColorRangeHandlers.push(handler)
-    function unsubscribe() {
-      changeColorRangeHandlers[index] = null
-    }
-    return Object.freeze({ unsubscribe })
-  }
 
   publicAPI.setColorRange = (componentIndex, colorRange) => {
     const currentColorRange = store.imageUI.colorRanges[componentIndex]
@@ -704,25 +645,13 @@ const createViewer = (
     return store.imageUI.colorRanges[componentIndex]
   }
 
-  const selectColorMapHandlers = []
   autorun(() => {
     const selectedComponentIndex = store.imageUI.selectedComponentIndex
     if (store.imageUI.colorMaps) {
       const colorMap = store.imageUI.colorMaps[selectedComponentIndex]
-      selectColorMapHandlers.forEach(handler => {
-        handler.call(null, selectedComponentIndex, colorMap)
-      })
+      eventEmitter.emit('selectColorMap', selectedComponentIndex, colorMap)
     }
   })
-
-  publicAPI.subscribeSelectColorMap = handler => {
-    const index = selectColorMapHandlers.length
-    selectColorMapHandlers.push(handler)
-    function unsubscribe() {
-      selectColorMapHandlers[index] = null
-    }
-    return Object.freeze({ unsubscribe })
-  }
 
   publicAPI.setColorMap = (componentIndex, colorMap) => {
     const currentColorMap = store.imageUI.colorMaps[componentIndex]
@@ -736,7 +665,6 @@ const createViewer = (
   }
 
   if (!use2D) {
-    const viewModeChangedHandlers = []
     reaction(
       () => {
         return store.mainUI.viewMode
@@ -744,39 +672,22 @@ const createViewer = (
       viewMode => {
         switch (viewMode) {
           case 'XPlane':
-            viewModeChangedHandlers.forEach(handler => {
-              handler.call(null, 'XPlane')
-            })
+            eventEmitter.emit('viewModeChanged', 'XPlane')
             break
           case 'YPlane':
-            viewModeChangedHandlers.forEach(handler => {
-              handler.call(null, 'YPlane')
-            })
+            eventEmitter.emit('viewModeChanged', 'YPlane')
             break
           case 'ZPlane':
-            viewModeChangedHandlers.forEach(handler => {
-              handler.call(null, 'ZPlane')
-            })
+            eventEmitter.emit('viewModeChanged', 'ZPlane')
             break
           case 'VolumeRendering':
-            viewModeChangedHandlers.forEach(handler => {
-              handler.call(null, 'VolumeRendering')
-            })
+            eventEmitter.emit('viewModeChanged', 'VolumeRendering')
             break
           default:
             console.error('Invalid view mode: ' + viewMode)
         }
       }
     )
-
-    publicAPI.subscribeViewModeChanged = handler => {
-      const index = viewModeChangedHandlers.length
-      viewModeChangedHandlers.push(handler)
-      function unsubscribe() {
-        viewModeChangedHandlers[index] = null
-      }
-      return Object.freeze({ unsubscribe })
-    }
 
     publicAPI.setViewMode = mode => {
       if (!image) {
@@ -785,25 +696,14 @@ const createViewer = (
       store.mainUI.viewMode = mode
     }
 
-    const xSliceChangedHandlers = []
     reaction(
       () => {
         return store.imageUI.xSlice
       },
       xSlice => {
-        xSliceChangedHandlers.forEach(handler => {
-          handler.call(null, xSlice)
-        })
+        eventEmitter.emit('xSliceChanged', xSlice)
       }
     )
-    publicAPI.subscribeXSliceChanged = handler => {
-      const index = xSliceChangedHandlers.length
-      xSliceChangedHandlers.push(handler)
-      function unsubscribe() {
-        xSliceChangedHandlers[index] = null
-      }
-      return Object.freeze({ unsubscribe })
-    }
 
     publicAPI.setXSlice = position => {
       const currentPosition = store.imageUI.xSlice
@@ -815,25 +715,14 @@ const createViewer = (
       return store.imageUI.xSlice
     }
 
-    const ySliceChangedHandlers = []
     reaction(
       () => {
         return store.imageUI.ySlice
       },
       ySlice => {
-        ySliceChangedHandlers.forEach(handler => {
-          handler.call(null, ySlice)
-        })
+        eventEmitter.emit('ySliceChanged', ySlice)
       }
     )
-    publicAPI.subscribeYSliceChanged = handler => {
-      const index = ySliceChangedHandlers.length
-      ySliceChangedHandlers.push(handler)
-      function unsubscribe() {
-        ySliceChangedHandlers[index] = null
-      }
-      return Object.freeze({ unsubscribe })
-    }
 
     publicAPI.setYSlice = position => {
       const currentPosition = store.imageUI.ySlice
@@ -845,25 +734,14 @@ const createViewer = (
       return store.imageUI.ySlice
     }
 
-    const zSliceChangedHandlers = []
     reaction(
       () => {
         return store.imageUI.zSlice
       },
       zSlice => {
-        zSliceChangedHandlers.forEach(handler => {
-          handler.call(null, zSlice)
-        })
+        eventEmitter.emit('zSliceChanged', zSlice)
       }
     )
-    publicAPI.subscribeZSliceChanged = handler => {
-      const index = zSliceChangedHandlers.length
-      zSliceChangedHandlers.push(handler)
-      function unsubscribe() {
-        zSliceChangedHandlers[index] = null
-      }
-      return Object.freeze({ unsubscribe })
-    }
 
     publicAPI.setZSlice = position => {
       const currentPosition = store.imageUI.zSlice
@@ -875,22 +753,10 @@ const createViewer = (
       return store.imageUI.zSlice
     }
 
-    const toggleShadowHandlers = []
     autorun(() => {
       const enabled = store.imageUI.useShadow
-      toggleShadowHandlers.forEach(handler => {
-        handler.call(null, enabled)
-      })
+      eventEmitter.emit('toggleShadow', enabled)
     })
-
-    publicAPI.subscribeToggleShadow = handler => {
-      const index = toggleShadowHandlers.length
-      toggleShadowHandlers.push(handler)
-      function unsubscribe() {
-        toggleShadowHandlers[index] = null
-      }
-      return Object.freeze({ unsubscribe })
-    }
 
     publicAPI.setShadowEnabled = enabled => {
       const shadow = store.imageUI.useShadow
@@ -899,22 +765,10 @@ const createViewer = (
       }
     }
 
-    const toggleSlicingPlanesHandlers = []
     autorun(() => {
       const enabled = store.imageUI.slicingPlanesEnabled
-      toggleSlicingPlanesHandlers.forEach(handler => {
-        handler.call(null, enabled)
-      })
+      eventEmitter.emit('toggleSlicingPlanes', enabled)
     })
-
-    publicAPI.subscribeToggleSlicingPlanes = handler => {
-      const index = toggleSlicingPlanesHandlers.length
-      toggleSlicingPlanesHandlers.push(handler)
-      function unsubscribe() {
-        toggleSlicingPlanesHandlers[index] = null
-      }
-      return Object.freeze({ unsubscribe })
-    }
 
     publicAPI.setSlicingPlanesEnabled = enabled => {
       const slicingPlanes = store.imageUI.slicingPlanesEnabled
@@ -923,22 +777,10 @@ const createViewer = (
       }
     }
 
-    const gradientOpacitySliderHandlers = []
     autorun(() => {
       const gradientOpacity = store.imageUI.gradientOpacity
-      gradientOpacitySliderHandlers.forEach(handler => {
-        handler.call(null, gradientOpacity)
-      })
+      eventEmitter.emit('gradientOpacityChanged', gradientOpacity)
     })
-
-    publicAPI.subscribeGradientOpacityChanged = handler => {
-      const index = gradientOpacitySliderHandlers.length
-      gradientOpacitySliderHandlers.push(handler)
-      function unsubscribe() {
-        gradientOpacitySliderHandlers[index] = null
-      }
-      return Object.freeze({ unsubscribe })
-    }
 
     publicAPI.setGradientOpacity = opacity => {
       const currentOpacity = store.imageUI.gradientOpacity
@@ -947,22 +789,10 @@ const createViewer = (
       }
     }
 
-    const blendModeHandlers = []
     autorun(() => {
       const blendMode = store.imageUI.blendMode
-      blendModeHandlers.forEach(handler => {
-        handler.call(null, blendMode)
-      })
+      eventEmitter.emit('blendModeChanged', blendMode)
     })
-
-    publicAPI.subscribeBlendModeChanged = handler => {
-      const index = blendModeHandlers.length
-      blendModeHandlers.push(handler)
-      function unsubscribe() {
-        blendModeHandlers[index] = null
-      }
-      return Object.freeze({ unsubscribe })
-    }
 
     publicAPI.setBlendMode = blendMode => {
       const currentBlendMode = store.imageUI.blendMode
@@ -975,15 +805,6 @@ const createViewer = (
       return store.imageUI.blendMode
     }
   }
-
-  //publicAPI.subscribeSelectColorMap = (handler) => {
-  //const index = inputPointSetColorHandlers.length;
-  //inputPointSetColorHandlers.push(handler);
-  //function unsubscribe() {
-  //inputPointSetColorHandlers[index] = null;
-  //}
-  //return Object.freeze({ unsubscribe });
-  //}
 
   publicAPI.setPointSetColor = (index, rgbColor) => {
     const hexColor = rgb2hex(rgbColor)
@@ -1004,7 +825,6 @@ const createViewer = (
     }
   }
 
-  const pointSetRepresentationChangedHandlers = []
   reaction(
     () => {
       return store.pointSetsUI.representations.slice()
@@ -1012,28 +832,13 @@ const createViewer = (
     representations => {
       const selectedPointSetIndex = store.pointSetsUI.selectedPointSetIndex
       const representation = representations[selectedPointSetIndex]
-      pointSetRepresentationChangedHandlers.forEach(handler => {
-        handler.call(null, selectedPointSetIndex, representation)
-      })
+      eventEmitter.emit(
+        'pointSetRepresentationChanged',
+        selectedPointSetIndex,
+        representation
+      )
     }
   )
-  publicAPI.subscribePointSetRepresentationChanged = handler => {
-    const index = pointSetRepresentationChangedHandlers.length
-    pointSetRepresentationChangedHandlers.push(handler)
-    function unsubscribe() {
-      pointSetRepresentationChangedHandlers[index] = null
-    }
-    return Object.freeze({ unsubscribe })
-  }
-
-  //publicAPI.subscribeSelectColorMap = (handler) => {
-  //const index = inputGeometryColorHandlers.length;
-  //inputGeometryColorHandlers.push(handler);
-  //function unsubscribe() {
-  //inputGeometryColorHandlers[index] = null;
-  //}
-  //return Object.freeze({ unsubscribe });
-  //}
 
   publicAPI.setGeometryColor = (index, rgbColor) => {
     const hexColor = rgb2hex(rgbColor)
