@@ -1,0 +1,9 @@
+bin export-ignore
+doc export-ignore
+src export-ignore
+test export-ignore
+yarn.lock export-ignore
+.* export-ignore
+
+karma.conf.js export-ignore
+*.config.js export-ignore
