@@ -4,7 +4,7 @@
 .npmrc
 yarn.lock
 npm-debug.log
-node_modules
+/node_modules
 Data
 coverage/
 test/output.html
