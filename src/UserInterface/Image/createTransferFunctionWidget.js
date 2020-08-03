@@ -1,8 +1,13 @@
-import { reaction, action } from 'mobx'
+import { reaction, action, observable } from 'mobx'
 
 import vtkMouseRangeManipulator from 'vtk.js/Sources/Interaction/Manipulators/MouseRangeManipulator'
 import vtkPiecewiseGaussianWidget from 'vtk.js/Sources/Interaction/Widgets/PiecewiseGaussianWidget'
 import macro from 'vtk.js/Sources/macro'
+
+import updateComponentPiecewiseFunction from '../../Rendering/updateComponentPiecewiseFunction'
+import updateTransferFunctionWidget from './updateTransferFunctionWidget'
+import updateTransferFunctionHistogramValues from './updateTransferFunctionHistogramValues'
+import updateTransferFunctionLookupTable from './updateTransferFunctionLookupTable'
 
 import style from '../ItkVtkViewer.module.css'
 
@@ -61,19 +66,7 @@ function createTransferFunctionWidget(store, uiContainer, use2D) {
   })
   transferFunctionWidget.onOpacityChange(() => {
     const component = store.imageUI.selectedComponentIndex
-    const lookupTableProxy = store.imageUI.lookupTableProxies[component]
-    const lookupTable = lookupTableProxy.getLookupTable()
-    const piecewiseFunction = store.imageUI.piecewiseFunctionProxies[
-      component
-    ].getPiecewiseFunction()
-    transferFunctionWidget.applyOpacity(piecewiseFunction)
-    const colorDataRange = transferFunctionWidget.getOpacityRange()
-    lookupTable.setMappingRange(...colorDataRange)
-    lookupTable.updateRange()
-
-    if (!renderWindow.getInteractor().isAnimating()) {
-      renderWindow.render()
-    }
+    updateComponentPiecewiseFunction(store, component)
   })
   reaction(
     () => {
@@ -156,37 +149,13 @@ function createTransferFunctionWidget(store, uiContainer, use2D) {
   })
   transferFunctionWidget.onZoomChange(macro.throttle(onZoomChange, 150))
 
-  function updateTransferFunctionHistogramValues(index) {
-    const colorRange = store.imageUI.colorRanges[index]
-    const numberOfComponents = store.imageUI.numberOfComponents
-    const dataArray = store.imageUI.image.getPointData().getScalars()
-    transferFunctionWidget.setDataArray(dataArray.getData(), {
-      numberOfComponents: numberOfComponents,
-      component: index,
-    })
-    transferFunctionWidget.setGaussians(store.imageUI.opacityGaussians[index])
-
-    const fullRange = dataArray.getRange(index)
-    const diff = fullRange[1] - fullRange[0]
-    const colorRangeNormalized = new Array(2)
-    colorRangeNormalized[0] = (colorRange[0] - fullRange[0]) / diff
-    colorRangeNormalized[1] = (colorRange[1] - fullRange[0]) / diff
-    transferFunctionWidget.setRangeZoom(colorRangeNormalized)
-  }
-  function updateTransferFunctionLookupTable(index) {
-    const lookupTable = store.imageUI.lookupTableProxies[index].getLookupTable()
-    transferFunctionWidget.setColorTransferFunction(lookupTable)
-    const colorDataRange = transferFunctionWidget.getOpacityRange()
-    lookupTable.setMappingRange(...colorDataRange)
-    lookupTable.updateRange()
-  }
   reaction(
     () => {
       return store.imageUI.selectedComponentIndex
     },
     index => {
-      updateTransferFunctionHistogramValues(index)
-      updateTransferFunctionLookupTable(index)
+      updateTransferFunctionHistogramValues(store, index)
+      updateTransferFunctionLookupTable(store, index)
 
       if (!renderWindow.getInteractor().isAnimating()) {
         renderWindow.render()
@@ -196,29 +165,28 @@ function createTransferFunctionWidget(store, uiContainer, use2D) {
 
   function setupOpacityGaussians() {
     const numberOfComponents = store.imageUI.numberOfComponents
+    const gaussians = []
     for (let component = 0; component < numberOfComponents; component++) {
-      if (store.imageUI.opacityGaussians.length <= component) {
+      if (store.imageUI.opacityGaussians.length > component) {
+        gaussians.push(store.imageUI.opacityGaussians[component])
+      } else {
         if (use2D) {
           // Necessary side effect: addGaussian calls invokeOpacityChange, which
           // calls onOpacityChange, which updates the lut (does not have a low
           // opacity in 2D)
-          store.imageUI.opacityGaussians.push([
+          gaussians.push([
             { position: 0.5, height: 1.0, width: 0.5, xBias: 0.0, yBias: 3.0 },
           ])
         } else {
-          store.imageUI.opacityGaussians.push([
+          gaussians.push([
             { position: 0.5, height: 1.0, width: 0.5, xBias: 0.51, yBias: 0.4 },
           ])
         }
       }
-      updateTransferFunctionHistogramValues(component)
-      const piecewiseFunction = store.imageUI.piecewiseFunctionProxies[
-        component
-      ].getPiecewiseFunction()
-      transferFunctionWidget.applyOpacity(piecewiseFunction)
     }
-    const selectedComponent = store.imageUI.selectedComponentIndex
-    updateTransferFunctionLookupTable(selectedComponent)
+
+    store.imageUI.opacityGaussians.replace(gaussians)
+    updateTransferFunctionWidget(store)
   }
   reaction(
     () => {
@@ -247,56 +215,50 @@ function createTransferFunctionWidget(store, uiContainer, use2D) {
     button: 1,
     alt: true,
   })
+  store.imageUI.transferFunctionManipulator.rangeManipulator = rangeManipulator
 
   // Window
-  const windowMotionScale = 150.0
   const windowGet = () => {
     const gaussian = transferFunctionWidget.getGaussians()[0]
-    return gaussian.width * windowMotionScale
+    return gaussian.width * store.imageUI.windowMotionScale
   }
+  store.imageUI.transferFunctionManipulator.windowGet = windowGet
   const windowSet = value => {
     const gaussians = transferFunctionWidget.getGaussians()
     const newGaussians = gaussians.slice()
-    newGaussians[0].width = value / windowMotionScale
+    newGaussians[0].width = value / store.imageUI.windowMotionScale
     store.imageUI.opacityGaussians[
       store.imageUI.selectedComponentIndex
     ] = newGaussians
     transferFunctionWidget.setGaussians(newGaussians)
   }
-  rangeManipulator.setVerticalListener(
-    0,
-    windowMotionScale,
-    1,
-    windowGet,
-    windowSet
-  )
+  store.imageUI.transferFunctionManipulator.windowSet = windowSet
 
   // Level
-  const levelMotionScale = 150.0
   const levelGet = () => {
     const gaussian = transferFunctionWidget.getGaussians()[0]
-    return gaussian.position * levelMotionScale
+    return gaussian.position * store.imageUI.levelMotionScale
   }
+  store.imageUI.transferFunctionManipulator.levelGet = levelGet
   const levelSet = value => {
     const gaussians = transferFunctionWidget.getGaussians()
     const newGaussians = gaussians.slice()
-    newGaussians[0].position = value / levelMotionScale
+    newGaussians[0].position = value / store.imageUI.levelMotionScale
     store.imageUI.opacityGaussians[
       store.imageUI.selectedComponentIndex
     ] = newGaussians
     transferFunctionWidget.setGaussians(newGaussians)
   }
-  rangeManipulator.setHorizontalListener(
-    0,
-    levelMotionScale,
-    1,
-    levelGet,
-    levelSet
-  )
+  store.imageUI.transferFunctionManipulator.levelSet = levelSet
 
   // Add range manipulator
   store.itkVtkView.getInteractorStyle2D().addMouseManipulator(rangeManipulator)
   store.itkVtkView.getInteractorStyle3D().addMouseManipulator(rangeManipulator)
+  // Update the window / level motion scales
+  updateTransferFunctionHistogramValues(
+    store,
+    store.imageUI.selectedComponentIndex
+  )
 
   const opacityRangeManipulator = vtkMouseRangeManipulator.newInstance({
     button: 3, // Right mouse

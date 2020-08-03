@@ -17,7 +17,10 @@ function createColorRangeInput(store, uiContainer) {
 
   function updateColorRangeInput() {
     const selectedIndex = store.geometriesUI.selectedGeometryIndex
-    if (!store.geometriesUI.hasScalars[selectedIndex]) {
+    if (
+      !store.geometriesUI.hasScalars[selectedIndex] ||
+      store.geometriesUI.hasOnlyDirectColors[selectedIndex]
+    ) {
       return
     }
     const colorByKey = store.geometriesUI.colorBy[selectedIndex].value
@@ -48,7 +51,7 @@ function createColorRangeInput(store, uiContainer) {
   function addColorRangesReactions(index, colorRanges) {
     if (store.geometriesUI.colorRangesReactions.has(index)) {
       const disposer = store.geometriesUI.colorRangesReactions.get(index)
-      disposer.dispose()
+      disposer()
     }
     const disposer = reaction(
       () => {
@@ -203,7 +206,10 @@ function createColorRangeInput(store, uiContainer) {
 
   function updateColorCanvas() {
     const geometryIndex = store.geometriesUI.selectedGeometryIndex
-    if (!store.geometriesUI.hasScalars[geometryIndex]) {
+    if (
+      !store.geometriesUI.hasScalars[selectedIndex] ||
+      store.geometriesUI.hasOnlyDirectColors[geometryIndex]
+    ) {
       return
     }
     const colorMap = store.geometriesUI.colorMaps[geometryIndex]
@@ -277,8 +283,8 @@ function createColorRangeInput(store, uiContainer) {
       return store.geometriesUI.selectedGeometryIndex
     },
     selectedIndex => {
-      const hasScalars = store.geometriesUI.hasScalars
-      if (hasScalars[selectedIndex]) {
+      const directColors = store.geometriesUI.hasOnlyDirectColors
+      if (directColors[selectedIndex]) {
         uiContainer.style.display = 'flex'
         updateColorRangeInput()
         updateColorCanvas()
@@ -298,9 +304,9 @@ function createColorRangeInput(store, uiContainer) {
   )
 
   updateColorCanvas()
-  const hasScalars = store.geometriesUI.hasScalars
+  const directColors = store.geometriesUI.hasOnlyDirectColors
   const selectedIndex = store.geometriesUI.selectedGeometryIndex
-  if (hasScalars[selectedIndex]) {
+  if (directColors[selectedIndex]) {
     uiContainer.style.display = 'flex'
   } else {
     uiContainer.style.display = 'none'

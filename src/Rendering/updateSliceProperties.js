@@ -8,14 +8,19 @@ function updateSliceProperties(store) {
       actorProp.setIndependentComponents(independentComponents)
       for (let component = 0; component < numberOfComponents; component++) {
         const lutProxy = store.imageUI.lookupTableProxies[component]
-        const pwfProxy = store.imageUI.piecewiseFunctionProxies[component]
-        const visibility = store.imageUI.componentVisibilities[component]
+        const pwfProxy = store.imageUI.piecewiseFunctionProxies[component].slice
         actorProp.setRGBTransferFunction(component, lutProxy.getLookupTable())
         actorProp.setPiecewiseFunction(
           component,
           pwfProxy.getPiecewiseFunction()
         )
-        actorProp.setComponentWeight(component, visibility)
+        const componentVisibility =
+          store.imageUI.componentVisibilities[component]
+        if (componentVisibility.visible) {
+          actorProp.setComponentWeight(component, componentVisibility.weight)
+        } else {
+          actorProp.setComponentWeight(component, 0.0)
+        }
       }
     })
   }

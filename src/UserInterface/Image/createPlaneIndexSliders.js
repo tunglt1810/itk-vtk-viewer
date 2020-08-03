@@ -6,6 +6,7 @@ import applyContrastSensitiveStyle from '../applyContrastSensitiveStyle'
 
 function createPlaneIndexSliders(store, uiContainer) {
   const planeIndexUIGroup = document.createElement('div')
+  store.imageUI.planeIndexUIGroup = planeIndexUIGroup
   planeIndexUIGroup.setAttribute('class', style.uiGroup)
 
   const numberOfValueChars = 6
@@ -46,7 +47,7 @@ function createPlaneIndexSliders(store, uiContainer) {
   xPlaneRow.style.display = 'none'
   reaction(() => {
     return store.imageUI.xSlice
-  }, macro.debounce(updateXSlice, 25, false))
+  }, macro.throttle(updateXSlice, 20))
   xSliceElement.addEventListener(
     'input',
     action(event => {
@@ -90,7 +91,7 @@ function createPlaneIndexSliders(store, uiContainer) {
   xPlaneRow.style.display = 'none'
   reaction(() => {
     return store.imageUI.ySlice
-  }, macro.debounce(updateYSlice, 25, false))
+  }, macro.throttle(updateYSlice, 20))
   ySliceElement.addEventListener(
     'input',
     action(event => {
@@ -133,7 +134,7 @@ function createPlaneIndexSliders(store, uiContainer) {
   zPlaneRow.style.display = 'none'
   reaction(() => {
     return store.imageUI.zSlice
-  }, macro.debounce(updateZSlice, 25, false))
+  }, macro.throttle(updateZSlice, 20))
   zSliceElement.addEventListener(
     'input',
     action(event => {

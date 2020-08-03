@@ -34,7 +34,6 @@
   background: rgba(128, 128, 128, 0.5);
   border-radius: 4px;
   margin: 2px;
-  z-index: 1000;
 }
 
 .uiRow {
@@ -48,7 +47,7 @@
 
 .mainUIRow {
   composes: uiRow;
-  justify-content: flex-start;
+  justify-content: space-around;
   max-width: 420px;
 }
 
@@ -83,8 +82,8 @@
   position: absolute;
   top: 5px;
   right: 5px;
-  borderRadius: 5px;
-  background: rgba(255, 255, 255, 0.4);
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.6);
   cursor: pointer;
   z-index: 101;
 }
@@ -159,6 +158,16 @@
     transform: translate(-50%, 15px);
 }
 [itk-vtk-tooltip-top-annotation]:hover::before {
+    transform: translate(-50%, 0);
+}
+[itk-vtk-tooltip-top-axes]::before {
+    top: initial;
+    left: 160%;
+    right: initial;
+    bottom: calc(100% + 10px);
+    transform: translate(-50%, 15px);
+}
+[itk-vtk-tooltip-top-axes]:hover::before {
     transform: translate(-50%, 0);
 }
 [itk-vtk-tooltip-top-fullscreen]::before {
@@ -242,6 +251,22 @@
 }
 
 .annotationButton svg {
+  height: 1.2em;
+  width: 1.2em;
+}
+
+.axesButton {
+  flex: 1;
+  width: 8mm;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  padding-left: 6px;
+  padding-right: 6px;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.axesButton svg {
   height: 1.2em;
   width: 1.2em;
 }
@@ -368,6 +393,22 @@
 }
 
 .resetCameraButton svg {
+  height: 1.2em;
+  width: 1.2em;
+}
+
+.bgColorButton {
+  flex: 1;
+  width: 8mm;
+  padding-top: 2px;
+  padding-bottom: 2px;
+  padding-left: 6px;
+  padding-right: 6px;
+  cursor: pointer;
+  z-index: 1000;
+}
+
+.bgColorButton svg {
   height: 1.2em;
   width: 1.2em;
 }

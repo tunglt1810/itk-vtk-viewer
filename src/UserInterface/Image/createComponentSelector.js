@@ -6,6 +6,7 @@ import style from '../ItkVtkViewer.module.css'
 
 function createComponentSelector(store, imageUIGroup) {
   const viewerDOMId = store.id
+  const eventEmitter = store.eventEmitter
 
   const componentSelector = document.createElement('div')
   componentSelector.setAttribute('class', style.selector)
@@ -37,8 +38,8 @@ function createComponentSelector(store, imageUIGroup) {
             style.componentTab
           }" data-component-index="${component}"/><label for="tab-${component}" class="${
             style.compTabLabel
-          }">${component}<input type="checkbox" ${
-            store.imageUI.componentVisibilities[idx] > 0.0
+          }">&nbsp;${component}&nbsp;<input type="checkbox" ${
+            store.imageUI.componentVisibilities[idx].visible
               ? 'checked="checked"'
               : ''
           } class="${
@@ -59,6 +60,15 @@ function createComponentSelector(store, imageUIGroup) {
   )
   updateAvailableComponents()
 
+  function syncCheckState(visibilityList) {
+    visibilityList.forEach((visibility, compIdx) => {
+      const elt = componentSelector.querySelector(
+        `input[data-component-index="${compIdx}"][type="checkbox"]`
+      )
+      elt.checked = visibility
+    })
+  }
+
   componentSelector.addEventListener(
     'change',
     action(event => {
@@ -68,17 +78,22 @@ function createComponentSelector(store, imageUIGroup) {
       if (event.target.type === 'radio') {
         store.imageUI.selectedComponentIndex = selIdx
       } else if (event.target.type === 'checkbox') {
-        const visibility = event.target.checked ? 1.0 : 0.0
-        store.imageUI.componentVisibilities[selIdx] = visibility
+        const visibility = event.target.checked
+        store.imageUI.componentVisibilities[selIdx].visible = visibility
       }
     })
   )
 
   reaction(
     () => {
-      return store.imageUI.componentVisibilities.slice()
+      return store.imageUI.componentVisibilities.map(
+        compVis => `${compVis.visible},${compVis.weight}`
+      )
     },
     visibilities => {
+      syncCheckState(
+        store.imageUI.componentVisibilities.map(compVis => compVis.visible)
+      )
       updateSliceProperties(store)
       updateVolumeProperties(store)
       const renderWindow = store.renderWindow

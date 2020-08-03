@@ -3,6 +3,7 @@ import { autorun, reaction, action } from 'mobx'
 import macro from 'vtk.js/Sources/macro'
 import createCategoricalColorIconSelector from '../createCategoricalColorIconSelector'
 import applyCategoricalColorToLookupTableProxy from '../applyCategoricalColorToLookupTableProxy'
+import updateLabelMapComponentWeight from '../../Rendering/updateLabelMapComponentWeight'
 
 import style from '../ItkVtkViewer.module.css'
 import applyContrastSensitiveStyle from '../applyContrastSensitiveStyle'
@@ -13,20 +14,15 @@ function createLabelMapColorWidget(store, uiContainer) {
   const viewerDOMId = store.id
 
   const labelMapColorUIGroup = document.createElement('div')
+  store.imageUI.labelMapColorUIGroup = labelMapColorUIGroup
   labelMapColorUIGroup.setAttribute('class', style.uiGroup)
-  // This group has a sub-component that drops down and needs to appear
-  // above components in the "uiGroup" below.
-  labelMapColorUIGroup.setAttribute(
-    'style',
-    'position: relative; z-index: 1001;'
-  )
 
   const labelMapWidgetRow = document.createElement('div')
   labelMapWidgetRow.setAttribute('class', style.uiRow)
   labelMapWidgetRow.className += ` ${viewerDOMId}-toggle`
 
   const categoricalColorSelector = document.createElement('div')
-  categoricalColorSelector.id = `${store.id}-labelMapCategoricalColorSelector`
+  categoricalColorSelector.id = `${store.id}-labelMapLookupTableSelector`
 
   const iconSelector = createCategoricalColorIconSelector(
     categoricalColorSelector
@@ -34,7 +30,7 @@ function createLabelMapColorWidget(store, uiContainer) {
 
   let customIcon = null
   function updateDisplayedCategoricalColor() {
-    const categoricalColor = store.imageUI.labelMapCategoricalColor
+    const categoricalColor = store.imageUI.labelMapLookupTable
 
     const lookupTableProxy = store.imageUI.labelMapLookupTableProxy
     const colorTransferFunction = lookupTableProxy.getLookupTable()
@@ -79,7 +75,7 @@ function createLabelMapColorWidget(store, uiContainer) {
   }
   reaction(
     () => {
-      return store.imageUI.labelMapCategoricalColor
+      return store.imageUI.labelMapLookupTable
     },
     categoricalColor => {
       updateDisplayedCategoricalColor()
@@ -90,18 +86,18 @@ function createLabelMapColorWidget(store, uiContainer) {
     action(event => {
       event.preventDefault()
       event.stopPropagation()
-      store.imageUI.labelMapCategoricalColor = iconSelector.getSelectedValue()
+      store.imageUI.labelMapLookupTable = iconSelector.getSelectedValue()
     })
   )
-  iconSelector.setSelectedValue(store.imageUI.labelMapCategoricalColor)
+  iconSelector.setSelectedValue(store.imageUI.labelMapLookupTable)
 
   const sliderEntry = document.createElement('div')
   sliderEntry.setAttribute('class', style.sliderEntry)
   sliderEntry.innerHTML = `
-    <div itk-vtk-tooltip itk-vtk-tooltip-top itk-vtk-tooltip-content="Gradient opacity" class="${style.gradientOpacitySlider}">
+    <div itk-vtk-tooltip itk-vtk-tooltip-top itk-vtk-tooltip-content="Label map blend" class="${style.gradientOpacitySlider}">
       ${opacityIcon}
     </div>
-    <input type="range" min="0" max="1" value="${store.imageUI.labelMapOpacity}" step="0.01"
+    <input type="range" min="0" max="1" value="${store.imageUI.labelMapBlend}" step="0.01"
       id="${store.id}-labelMapColorOpacitySlider"
       class="${style.slider}" />`
   const opacityElement = sliderEntry.querySelector(
@@ -109,32 +105,22 @@ function createLabelMapColorWidget(store, uiContainer) {
   )
   const sliderEntryDiv = sliderEntry.children[0]
   applyContrastSensitiveStyle(store, 'invertibleButton', sliderEntryDiv)
-  const volume = store.imageUI.representationProxy.getVolumes()[0]
-  const volumeProperty = volume.getProperty()
-  const sliceActor = store.imageUI.representationProxy.getActors()[0]
-  const sliceProperty = sliceActor.getProperty()
   function updateLabelMapColorOpacity() {
-    const labelMapOpacity = store.imageUI.labelMapOpacity
-    opacityElement.value = labelMapOpacity
-    const numberOfComponents = store.imageUI.numberOfComponents
-    for (let c = 0; c < numberOfComponents; c++) {
-      volumeProperty.setComponentWeight(c, 1.0 - labelMapOpacity)
-      sliceProperty.setComponentWeight(c, 1.0 - labelMapOpacity)
-    }
-    volumeProperty.setComponentWeight(numberOfComponents, labelMapOpacity)
-    sliceProperty.setComponentWeight(numberOfComponents, labelMapOpacity)
+    const labelMapBlend = store.imageUI.labelMapBlend
+    opacityElement.value = labelMapBlend
+    updateLabelMapComponentWeight(store)
     store.renderWindow.render()
   }
   reaction(() => {
-    return store.imageUI.labelMapOpacity
-  }, macro.debounce(updateLabelMapColorOpacity, 25))
+    return store.imageUI.labelMapBlend
+  }, macro.throttle(updateLabelMapColorOpacity, 20))
   updateLabelMapColorOpacity()
   opacityElement.addEventListener(
     'input',
     action(event => {
       event.preventDefault()
       event.stopPropagation()
-      store.imageUI.labelMapOpacity = Number(opacityElement.value)
+      store.imageUI.labelMapBlend = Number(opacityElement.value)
     })
   )
   autorun(() => {

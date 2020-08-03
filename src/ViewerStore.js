@@ -1,7 +1,9 @@
 import { observable, computed } from 'mobx'
+import EventEmitter from 'eventemitter3'
 
 import vtkImageData from 'vtk.js/Sources/Common/DataModel/ImageData'
 import vtkDataArray from 'vtk.js/Sources/Common/Core/DataArray'
+import { VtkDataTypes } from 'vtk.js/Sources/Common/Core/DataArray/Constants'
 
 const STYLE_CONTAINER = {
   position: 'relative',
@@ -20,6 +22,7 @@ class MainUIStore {
   uiContainer = null
   @observable collapsed = false
   @observable annotationsEnabled = true
+  @observable axesEnabled = false
   @observable fullscreenEnabled = false
   @observable rotateEnabled = false
   @observable interpolationEnabled = true
@@ -38,7 +41,7 @@ class MainUIStore {
 
 class ImageUIStore {
   @observable.ref image = null
-  @observable.ref multiscaleManager = null
+  @observable.ref multiscaleImage = null
 
   source = null
   @observable.ref representationProxy = null
@@ -57,25 +60,37 @@ class ImageUIStore {
   piecewiseFunctionProxies = []
   @observable componentVisibilities = []
   transferFunctionWidget = null
+  transferFunctionManipulator = {
+    rangeManipulator: null,
+    windowMotionScale: 150.0,
+    levelMotionScale: 150.0,
+    windowGet: null,
+    windowSet: null,
+    levelGet: null,
+    levelSet: null,
+  }
   independentComponents = true
 
+  imageUIGroup = null
   croppingWidget = null
   addCroppingPlanesChangedHandler = () => {}
   addResetCropHandler = () => {}
 
   @observable colorMaps = null
   @observable colorRanges = []
-  opacityGaussians = []
+  @observable opacityGaussians = []
 
   @observable blendMode = 0
   @observable useShadow = true
   @observable slicingPlanesEnabled = false
   @observable gradientOpacity = 0.2
+  @observable volumeSampleDistance = 0.25
   @observable xSlice = null
   @observable ySlice = null
   @observable zSlice = null
 
   @observable.ref labelMap = null
+  @observable.ref multiscaleLabelMap = null
   @computed get fusedImageLabelMap() {
     const image = this.image
     const labelMap = this.labelMap
@@ -138,13 +153,33 @@ class ImageUIStore {
     return fusedImage
   }
 
+  @computed get haveOnlyLabelMap() {
+    return (
+      (!!this.labelMap || !!this.multiscaleLabelMap) &&
+      !!!this.image &&
+      !!!this.multiscaleImage
+    )
+  }
+  @computed get haveLabelMap() {
+    return !!this.labelMap || !!this.multiscaleLabelMap
+  }
+
+  labelMapColorUIGroup = null
   labelMapLookupTableProxy = null
   // Sorted array of label values
   labelMapLabels = null
   piecewiseFunction = null
 
-  @observable labelMapOpacity = 0.75
-  @observable labelMapCategoricalColor = 'glasbey'
+  @observable lastPickedValues = {}
+
+  @observable labelMapBlend = 0.5
+  @observable labelMapLookupTable = 'glasbey'
+
+  @observable labelMapWeights = []
+  @observable labelMapToggleWeight = 0.1
+  @observable selectedLabel = 'all'
+
+  planeIndexUIGroup = null
 
   distanceWidget = null
   distanceUpdateInProgress = false
@@ -172,11 +207,26 @@ class GeometriesUIStore {
   colorRangesReactions = new Map()
   @computed get hasScalars() {
     return this.geometries.map(geometry => {
-      const pointData = geometry.getPointData()
-      const hasPointDataScalars = !!pointData.getScalars()
-      const cellData = geometry.getCellData()
-      const hasCellDataScalars = !!cellData.getScalars()
-      return hasPointDataScalars || hasCellDataScalars
+      const pointDataScalars = !!geometry.getPointData().getScalars()
+      const cellDataScalars = !!geometry.getCellData().getScalars()
+
+      return pointDataScalars || cellDataScalars
+    })
+  }
+  @computed get hasOnlyDirectColors() {
+    return this.geometries.map(geometry => {
+      const pointDataScalars = geometry.getPointData().getScalars()
+      const pointDataDirectColors =
+        !!pointDataScalars &&
+        pointDataScalars.getDataType() === VtkDataTypes.UNSIGNED_CHAR &&
+        pointDataScalars.getNumberOfComponents() === 3
+      const cellDataScalars = geometry.getCellData().getScalars()
+      const cellDataDirectColors =
+        !!cellDataScalars &&
+        cellDataScalars.getDataType() === VtkDataTypes.UNSIGNED_CHAR &&
+        cellDataScalars.getNumberOfComponents() === 3
+
+      return pointDataDirectColors && cellDataDirectColors
     })
   }
   @computed get colorByOptions() {
@@ -265,6 +315,9 @@ class PointSetsUIStore {
   @observable sizes = []
   @observable colorRanges = new Map()
   colorRangesReactions = new Map()
+
+  lengthPixelRatio = 0.1
+
   @computed get hasScalars() {
     return this.pointSets.map(pointSet => {
       const pointData = pointSet.getPointData()
@@ -350,8 +403,11 @@ class ViewerStore {
       'TrivialProducer',
       { name: 'Image' }
     )
+
+    this.eventEmitter = new EventEmitter()
   }
 
+  eventEmitter = null
   container = null
   id = 'itk-vtk-viewer'
   proxyManager = null
@@ -364,6 +420,14 @@ class ViewerStore {
     const backgroundColor = this.style.backgroundColor
     return backgroundColor[0] + backgroundColor[1] + backgroundColor[2] < 1.5
   }
+
+  backgroundColors = [
+    [0, 0, 0],
+    [1, 1, 1],
+    [0.5, 0.5, 0.5],
+  ]
+
+  selectedBackgroundColor = 0
 
   @observable style = {
     backgroundColor: [0, 0, 0],
